@@ -1,0 +1,1392 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PSFU Body & Paint — Perintis Perkasa</title>
+<style>
+  :root{
+    color-scheme: dark;
+    /* Workshop / tactical dark theme — graphite surfaces, safety-orange &
+       caution-yellow accents. Categorical slots below are the dataviz skill's
+       validated 8-hue dark-mode order (OKLCH L 0.48–0.67, CVD ΔE ≥ 8 adjacent,
+       normal-vision ΔE ≥ 15, all ≥ 3:1 on this exact surface) — re-run
+       scripts/validate_palette.js against --surface #1b1e25 before changing
+       any of the --slot-* / --subslot-* values below. */
+    --page-plane:     #12141a;
+    --surface-1:      #1b1e25;
+    --surface-2:      #232730;
+    --text-primary:   #eef0f3;
+    --text-secondary: #a6acb8;
+    --text-muted:     #8790a0;
+    --gridline:       #2c313c;
+    --baseline:       #3a4150;
+    --border:         rgba(255,255,255,0.10);
+    --card-shadow:    0 1px 2px rgba(0,0,0,0.45), 0 10px 28px rgba(0,0,0,0.4);
+
+    --accent-1:       #ff7a1a; /* safety orange */
+    --accent-2:       #ffcc00; /* caution yellow */
+    --accent-grad:    linear-gradient(135deg, var(--accent-1), var(--accent-2));
+    --accent-ink:     #1a1300; /* dark ink for text ON the accent gradient */
+    --link:           #ff9a4d;
+
+    --good:      #0ca30c;
+    --good-text: #3ddc3d;
+    --warning:   #fab219;
+    --serious:   #ec835a;
+    --critical:  #ff5c5c;
+
+    --slot-1: #3987e5; /* Petugas / SA */
+    --slot-2: #d95926; /* Produksi & Teknis */
+    --slot-3: #199e70; /* Fasilitas */
+    --slot-4: #c98500; /* Kenyamanan */
+    --slot-5: #d55181; /* Waktu Tunggu */
+    --slot-6: #008300; /* Kebersihan Cuci */
+    --slot-7: #9085e9; /* Administrasi */
+    --slot-8: #e66767; /* Lainnya */
+
+    --subslot-1: #3987e5; /* Noise (Bunyi) */
+    --subslot-2: #d55181; /* Mekanikal */
+    --subslot-3: #c98500; /* Elektrikal */
+    --subslot-4: #9085e9; /* SOP */
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family: system-ui,-apple-system,"Segoe UI",sans-serif;
+    color:var(--text-primary);
+    background:
+      radial-gradient(1100px 480px at 12% -10%, color-mix(in srgb, var(--accent-1) 10%, transparent), transparent 60%),
+      var(--page-plane);
+  }
+  .hazard-strip{
+    height:7px; width:100%;
+    background:repeating-linear-gradient(135deg, #14161b 0 14px, var(--accent-2) 14px 28px);
+  }
+  .wrap{max-width:1280px; margin:0 auto; padding:20px 16px 60px;}
+  header.top{
+    display:flex; flex-wrap:wrap; gap:12px; align-items:flex-start; justify-content:space-between;
+    margin-bottom:18px;
+  }
+  .brand h1{
+    font-size:22px; margin:0 0 2px; background:var(--accent-grad);
+    -webkit-background-clip:text; background-clip:text; color:transparent; -webkit-text-fill-color:transparent;
+    display:inline-block;
+  }
+  .brand p{margin:0; color:var(--text-secondary); font-size:13.5px;}
+  .controls{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center; background:var(--surface-1);
+    border:1px solid var(--border); border-radius:12px; padding:10px 12px; box-shadow:var(--card-shadow);
+  }
+  .controls label{font-size:12.5px; color:var(--text-secondary); margin-right:4px;}
+  select, button, input[type=text]{
+    font-family:inherit; font-size:13.5px; padding:6px 10px; border-radius:8px;
+    border:1px solid var(--border); background:var(--surface-1); color:var(--text-primary);
+  }
+  button{cursor:pointer; font-weight:600;}
+  button.primary{background:var(--accent-grad); color:var(--accent-ink); border:none; font-weight:800; letter-spacing:.01em; box-shadow:0 3px 14px color-mix(in srgb, var(--accent-1) 45%, transparent);}
+  button:hover{filter:brightness(1.08);}
+  button.primary:hover{filter:brightness(1.05);}
+  .status-line{font-size:12px; color:var(--text-muted); display:flex; align-items:center; gap:6px;}
+  .dot{width:7px;height:7px;border-radius:50%;background:var(--good); display:inline-block; box-shadow:0 0 0 3px color-mix(in srgb, var(--good) 25%, transparent);}
+  .banner{
+    padding:10px 14px; border-radius:10px; font-size:13.5px; margin-bottom:16px; display:none;
+    border:1px solid var(--border);
+  }
+  .banner.warn{background:color-mix(in srgb, var(--warning) 16%, var(--surface-1)); color:var(--text-primary); display:block;}
+  .banner.error{background:color-mix(in srgb, var(--critical) 14%, var(--surface-1)); color:var(--text-primary); display:block;}
+
+  .kpi-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:10px; margin-bottom:18px;}
+  .stat-tile{
+    position:relative; background:var(--surface-1); border:1px solid var(--border); border-radius:10px; padding:14px 16px 14px 18px;
+    box-shadow:var(--card-shadow); overflow:hidden;
+  }
+  .stat-tile::before{
+    content:""; position:absolute; left:0; top:0; bottom:0; width:3px; background:var(--accent-grad);
+  }
+  .stat-tile.good::before{background:var(--good);}
+  .stat-tile.bad::before{background:var(--critical);}
+  .stat-tile .label{font-size:11.5px; color:var(--text-secondary); margin-bottom:6px; text-transform:uppercase; letter-spacing:.04em;}
+  .stat-tile .value{font-size:26px; font-weight:800; font-variant-numeric:proportional-nums tabular-nums; font-family:ui-monospace,"SF Mono","Cascadia Code","Segoe UI Mono",Consolas,monospace;}
+  .stat-tile .sub{font-size:12px; color:var(--text-muted); margin-top:4px;}
+  .stat-tile.good .value{color:var(--good-text);}
+  .stat-tile.bad .value{color:var(--critical);}
+
+  .summary-row{display:grid; grid-template-columns:repeat(auto-fit,minmax(270px,1fr)); gap:12px; margin-bottom:20px;}
+  .donut-card{
+    background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+    padding:14px 16px; box-shadow:var(--card-shadow); display:flex; flex-direction:column; gap:12px;
+  }
+  .donut-card-head{display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:6px;}
+  .donut-card-title{font-size:13px; font-weight:700; color:var(--text-primary);}
+  .donut-card-sub{font-size:11px; color:var(--text-muted);}
+  .donut-card-body{display:flex; align-items:center; gap:18px;}
+  .donut{
+    width:96px; height:96px; border-radius:50%; flex:none; display:flex; align-items:center;
+    justify-content:center; position:relative; background:var(--gridline);
+    transition:background 0.3s ease;
+  }
+  .donut-hole{
+    width:64px; height:64px; border-radius:50%; background:var(--surface-1);
+    display:flex; flex-direction:column; align-items:center; justify-content:center;
+  }
+  .donut-pct{font-size:19px; font-weight:800; line-height:1; font-variant-numeric:proportional-nums; color:var(--text-primary);}
+  .donut-pct-label{font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+  .donut-legend{display:flex; flex-direction:column; gap:9px; font-size:12px; justify-content:center;}
+  .donut-legend-item{display:flex; align-items:center; gap:7px;}
+  .donut-legend-swatch{width:10px;height:10px;border-radius:3px; flex:none;}
+  .donut-legend-item b{color:var(--text-primary); font-size:12.5px; font-weight:700;}
+  .donut-legend-item .n{color:var(--text-secondary);}
+  .donut-empty{font-size:11.5px; color:var(--text-muted); font-style:italic;}
+  .breakdown-body{display:flex; flex-direction:column; gap:10px; width:100%; justify-content:center;}
+  .bar-row{display:flex; align-items:center; gap:10px;}
+  .bar-row-label{width:118px; flex:none; font-size:11.5px; color:var(--text-secondary); display:flex; align-items:center; gap:6px; line-height:1.25;}
+  .bar-row-label .swatch{width:9px;height:9px;border-radius:3px;flex:none;}
+  .bar-track{position:relative; flex:1; height:22px; border-radius:7px; background:var(--gridline); overflow:hidden; min-width:0;}
+  .bar-fill{
+    height:100%; border-radius:7px; display:flex; align-items:center; justify-content:flex-end;
+    padding-right:8px; box-sizing:border-box; min-width:0;
+  }
+  .bar-fill-label{font-size:11.5px; font-weight:700; color:#fff; white-space:nowrap; font-variant-numeric:tabular-nums;}
+  .bar-label-outside{
+    position:absolute; top:50%; transform:translateY(-50%); font-size:11.5px; font-weight:700;
+    color:var(--text-primary); white-space:nowrap; font-variant-numeric:tabular-nums;
+  }
+
+  .subcat-card{
+    background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+    padding:16px 18px; box-shadow:var(--card-shadow); margin-bottom:20px;
+  }
+  .subcat-card-sub{font-size:12px; color:var(--text-muted); margin:-4px 0 14px;}
+  .subcat-card-body{display:flex; gap:26px; align-items:center; flex-wrap:wrap;}
+  .subcat-donut-wrap{position:relative; flex:none; width:150px; height:150px;}
+  .subcat-arc{transition:opacity 0.15s ease; cursor:pointer;}
+  .subcat-arc:hover{opacity:0.8;}
+  .subcat-arc.dimmed{opacity:0.28;}
+  .subcat-arc-label{pointer-events:none; transition:opacity 0.15s ease; font-family:inherit;}
+  .subcat-arc-label .sal-num{fill:#fff; font-size:9.5px; font-weight:800;}
+  .subcat-arc-label .sal-pct{fill:#fff; font-size:6.6px; font-weight:700; opacity:0.94;}
+  .subcat-arc-label.dimmed{opacity:0.3;}
+  .subcat-center-label{
+    position:absolute; inset:0; display:flex; flex-direction:column; align-items:center;
+    justify-content:center; pointer-events:none;
+  }
+  .subcat-center-value{font-size:22px; font-weight:800; color:var(--text-primary); line-height:1;}
+  .subcat-center-label-text{font-size:9px; color:var(--text-muted); text-transform:uppercase; letter-spacing:.04em; margin-top:2px;}
+  .subcat-legend{display:flex; flex-direction:column; gap:6px; flex:1; min-width:220px;}
+  .subcat-legend-item{
+    display:flex; align-items:center; gap:8px; font-size:12.5px; cursor:pointer;
+    padding:7px 9px; border-radius:8px; border:1px solid transparent; background:transparent;
+  }
+  .subcat-legend-item:hover{background:var(--surface-2);}
+  .subcat-legend-item.active{background:var(--surface-2); border-color:var(--border);}
+  .subcat-legend-swatch{width:11px;height:11px;border-radius:3px; flex:none;}
+  .subcat-legend-item b{color:var(--text-primary); font-size:12.5px; font-weight:700;}
+  .subcat-legend-item .n{color:var(--text-secondary); margin-left:auto; font-variant-numeric:tabular-nums;}
+  .subcat-detail{margin-top:16px; border-top:1px solid var(--gridline); padding-top:14px;}
+  .subcat-detail-header{display:flex; justify-content:space-between; align-items:center; margin-bottom:10px; flex-wrap:wrap; gap:8px;}
+  .subcat-detail-title{font-size:13.5px; font-weight:700; color:var(--text-primary);}
+  .subcat-detail-title .count-pill{margin-left:8px;}
+  .subcat-detail-close{font-size:12px; padding:5px 10px;}
+  .subcat-detail-list{display:flex; flex-direction:column; gap:8px; max-height:420px; overflow:auto;}
+  .subcat-detail-hint{font-size:12.5px; color:var(--text-muted); font-style:italic; padding:4px 2px;}
+
+  .tab-nav{display:flex; gap:4px; margin-bottom:18px; border-bottom:1px solid var(--gridline);}
+  .tab-btn{
+    background:transparent; border:none; color:var(--text-secondary); font-size:13.5px; font-weight:600;
+    padding:10px 16px; cursor:pointer; border-radius:10px 10px 0 0; position:relative; top:1px;
+    border:1px solid transparent;
+  }
+  .tab-btn:hover{color:var(--text-primary);}
+  .tab-btn.active{
+    color:var(--text-primary); background:var(--surface-1);
+    border:1px solid var(--gridline); border-bottom-color:var(--surface-1);
+    box-shadow:inset 0 2px 0 var(--accent-1);
+  }
+  .tab-panel{display:none;}
+  .tab-panel.active{display:block;}
+
+  h2.section-title{font-size:15px; margin:26px 0 10px; color:var(--text-primary); display:flex; align-items:center; gap:8px;}
+  h2.section-title .count-pill{
+    font-size:11px; font-weight:600; background:var(--gridline); color:var(--text-secondary);
+    border-radius:999px; padding:2px 8px;
+  }
+
+  .area-grid{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:12px;}
+  .area-card{
+    background:var(--surface-1); border:1px solid var(--border); border-radius:12px; padding:14px 16px;
+    box-shadow:var(--card-shadow); display:flex; flex-direction:column; gap:8px;
+  }
+  .area-card .head{display:flex; align-items:center; justify-content:space-between; gap:8px;}
+  .area-chip{display:inline-flex; align-items:center; gap:6px; font-size:13px; font-weight:700;}
+  .area-chip .swatch{width:10px;height:10px;border-radius:3px; flex:none;}
+  .area-card .rate{font-size:12px; color:var(--text-muted);}
+  .meter{height:8px; border-radius:99px; background:var(--gridline); overflow:hidden; display:flex;}
+  .meter .seg-good{background:var(--good); height:100%;}
+  .meter .seg-bad{background:var(--critical); height:100%;}
+  .area-counts{display:flex; gap:14px; font-size:12px; color:var(--text-secondary);}
+  .area-counts b{color:var(--text-primary);}
+  .highlight-box{font-size:12.5px; border-radius:8px; padding:8px 10px; line-height:1.4;}
+  .highlight-box.neg{background:color-mix(in srgb, var(--critical) 10%, var(--surface-1)); color:var(--text-primary); border-left:3px solid var(--critical);}
+  .highlight-box.pos{background:color-mix(in srgb, var(--good) 10%, var(--surface-1)); color:var(--text-primary); border-left:3px solid var(--good);}
+  .highlight-box .tag{font-weight:700; display:block; margin-bottom:2px; font-size:11px; text-transform:uppercase; letter-spacing:.02em;}
+  .empty-note{font-size:12px; color:var(--text-muted); font-style:italic;}
+
+  .table-controls{display:flex; flex-wrap:wrap; gap:8px; margin-bottom:10px; align-items:center;}
+  .table-scroll{
+    background:var(--surface-1); border:1px solid var(--border); border-radius:12px; overflow:auto;
+    box-shadow:var(--card-shadow); max-height:640px;
+  }
+  table{border-collapse:collapse; width:100%; font-size:13px; min-width:1320px;}
+  thead th{
+    position:sticky; top:0; background:var(--surface-2); text-align:left; padding:10px 12px;
+    border-bottom:1px solid var(--gridline); font-size:11.5px; color:var(--text-secondary);
+    text-transform:uppercase; letter-spacing:.02em; white-space:nowrap;
+  }
+  tbody td{padding:9px 12px; border-bottom:1px solid var(--gridline); vertical-align:top;}
+  tbody tr:hover{background:color-mix(in srgb, var(--slot-1) 10%, transparent);}
+  ::-webkit-scrollbar{width:10px; height:10px;}
+  ::-webkit-scrollbar-track{background:var(--surface-2);}
+  ::-webkit-scrollbar-thumb{background:var(--baseline); border-radius:6px;}
+  ::-webkit-scrollbar-thumb:hover{background:var(--accent-1);}
+  .badge{display:inline-flex; align-items:center; gap:5px; font-size:11.5px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap;}
+  .badge.puas{color:var(--good-text); background:color-mix(in srgb, var(--good) 16%, var(--surface-1));}
+  .badge.kurang{color:var(--critical); background:color-mix(in srgb, var(--critical) 14%, var(--surface-1));}
+  .badge.belum{color:var(--text-secondary); background:var(--gridline);}
+  .badge.loyal{color:var(--good-text); background:color-mix(in srgb, var(--good) 16%, var(--surface-1));}
+  .badge.new{color:var(--accent-1); background:color-mix(in srgb, var(--accent-1) 14%, var(--surface-1));}
+  .badge.ins{color:var(--accent-2); background:color-mix(in srgb, var(--accent-2) 14%, var(--surface-1));}
+  .badge.noins{color:var(--text-muted); background:var(--gridline);}
+  .badge.rj-datang{color:var(--good-text); background:color-mix(in srgb, var(--good) 16%, var(--surface-1));}
+  .badge.rj-tidak{color:var(--critical); background:color-mix(in srgb, var(--critical) 14%, var(--surface-1));}
+  .qmark{display:inline-flex; align-items:center; justify-content:center; min-width:20px; height:20px; padding:0 5px; border-radius:6px; font-size:11px; font-weight:800;}
+  .qmark.pass{background:color-mix(in srgb, var(--good) 18%, var(--surface-1)); color:var(--good-text);}
+  .qmark.fail{background:var(--gridline); color:var(--text-muted);}
+  .highlight-box.neu{background:color-mix(in srgb, var(--text-muted) 10%, var(--surface-1)); color:var(--text-primary); border-left:3px solid var(--baseline);}
+  .nps{font-variant-numeric:tabular-nums; font-weight:700;}
+  .plate{font-variant-numeric:tabular-nums; font-weight:600;}
+  .note-muted{color:var(--text-muted); font-size:12px;}
+  .verbatim{max-width:320px; white-space:normal;}
+
+  footer{margin-top:30px; font-size:12px; color:var(--text-muted); line-height:1.6; border-top:1px solid var(--gridline); padding-top:14px;}
+  footer a{color:var(--link);}
+  .loading{padding:40px; text-align:center; color:var(--text-muted); font-size:13px;}
+</style>
+</head>
+<body>
+<div class="hazard-strip"></div>
+<div class="wrap">
+
+  <header class="top">
+    <div class="brand">
+      <h1>PSFU Body & Paint — Perintis Perkasa</h1>
+      <p>Highlight kepuasan &amp; komplain pelanggan Body &amp; Paint, langsung dari data PSFU</p>
+    </div>
+    <div class="controls">
+      <label for="monthSelect">Bulan</label>
+      <select id="monthSelect"></select>
+      <label for="fromDaySelect">Dari Tanggal</label>
+      <select id="fromDaySelect"></select>
+      <label for="toDaySelect">Sampai Tanggal</label>
+      <select id="toDaySelect"></select>
+      <button id="btnDefaultRange" title="Reset ke rentang default (1 – H-4)">Default</button>
+      <button id="btnRefresh" class="primary">Refresh</button>
+      <span class="status-line"><span class="dot" id="liveDot"></span><span id="statusText">memuat…</span></span>
+    </div>
+  </header>
+
+  <div class="banner warn" id="monthBanner"></div>
+  <div class="banner error" id="errorBanner"></div>
+
+  <div id="loadingNote" class="loading">Mengambil data dari Google Sheet…</div>
+
+  <div id="content" style="display:none;">
+    <div class="tab-nav">
+      <button class="tab-btn active" id="tabBtnHighlight" data-tab="panelHighlight">Highlight Kurang Puas</button>
+      <button class="tab-btn" id="tabBtnDetail" data-tab="panelDetail">Detail Semua PKB</button>
+    </div>
+
+    <div class="kpi-row" id="kpiRow"></div>
+
+    <div class="tab-panel active" id="panelHighlight">
+      <div class="summary-row">
+        <div class="donut-card">
+          <div class="donut-card-head">
+            <div class="donut-card-title">Rate Kepuasan</div>
+            <div class="donut-card-sub" id="rangeLabelA"></div>
+          </div>
+          <div class="donut-card-body">
+            <div class="donut" id="donutRate"><div class="donut-hole"><div class="donut-pct" id="donutRatePct">–</div><div class="donut-pct-label">puas</div></div></div>
+            <div class="donut-legend" id="donutRateLegend"></div>
+          </div>
+        </div>
+        <div class="donut-card">
+          <div class="donut-card-head">
+            <div class="donut-card-title">Komplain per Bagian</div>
+            <div class="donut-card-sub" id="rangeLabelB"></div>
+          </div>
+          <div class="breakdown-body" id="areaBreakdown"></div>
+        </div>
+        <div class="donut-card">
+          <div class="donut-card-head">
+            <div class="donut-card-title">Distribusi Asuransi</div>
+            <div class="donut-card-sub" id="rangeLabelC"></div>
+          </div>
+          <div class="breakdown-body" id="insuranceBreakdown"></div>
+        </div>
+      </div>
+
+      <h2 class="section-title">Breakdown Kategori Komplain <span class="count-pill" id="subCatPill"></span></h2>
+      <div class="subcat-card-sub">Noise (Bunyi), Mekanikal &amp; Elektrikal dari bagian Produksi &amp; Teknis; SOP dari bagian Petugas &amp; SA, ditambah komplain Produksi &amp; Teknis yang menyebut proses/pengerjaan (dan sebagian Lainnya). Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
+      <div class="subcat-card">
+        <div class="subcat-card-body">
+          <div class="subcat-donut-wrap" id="subCatDonutWrap"></div>
+          <div class="subcat-legend" id="subCatLegend"></div>
+        </div>
+        <div class="subcat-detail" id="subCatDetail"></div>
+      </div>
+
+      <h2 class="section-title">Highlight Komplain per Bagian <span class="count-pill" id="areaCountPill"></span></h2>
+      <div class="area-grid" id="areaGrid"></div>
+
+      <h2 class="section-title">Return Job (Non-FIR) <span class="count-pill" id="returnJobPill"></span></h2>
+      <div class="subcat-card-sub">Kendaraan yang belum lulus cek Q1 (First Item Repair) saat serah terima, sehingga dijadwalkan balik lagi ke bengkel untuk perbaikan ulang. Status "Datang" / "Tidak Datang" diambil dari kolom Q1 (FIR) di sheet.</div>
+      <div class="subcat-card" id="returnJobCard"></div>
+
+      <h2 class="section-title">Daftar Pelanggan Kurang Puas <span class="count-pill" id="kurangCountPill"></span></h2>
+      <div class="table-controls">
+        <input type="text" id="searchBoxHi" placeholder="Cari plat nopol / SA / model…" style="min-width:220px;">
+        <select id="filterAreaHi"><option value="">Semua Bagian</option></select>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th><th>Plat Nopol</th><th>Model</th><th>SA</th><th>Bagian</th>
+              <th>Teknisi / Foreman</th><th>Visit Status</th><th>Catatan Pelanggan</th>
+              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th>
+            </tr>
+          </thead>
+          <tbody id="tableBodyHighlight"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="tab-panel" id="panelDetail">
+      <h2 class="section-title" style="margin-top:6px;">Detail PKB &amp; Feedback Pelanggan <span class="count-pill" id="tableCountPill"></span></h2>
+      <div class="table-controls">
+        <input type="text" id="searchBox" placeholder="Cari plat nopol / SA / model…" style="min-width:220px;">
+        <select id="filterArea"><option value="">Semua Bagian</option></select>
+        <select id="filterStatus">
+          <option value="">Semua Status</option>
+          <option value="Puas">Puas</option>
+          <option value="Kurang Puas">Kurang Puas</option>
+          <option value="Belum Direspon">Belum Direspon</option>
+        </select>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Tanggal</th><th>No</th><th>Plat Nopol</th><th>Model</th><th>SA</th><th>Bagian</th>
+              <th>Teknisi / Foreman</th><th>Visit Status</th><th>Status</th><th>Catatan Pelanggan</th>
+              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div><b>Sumber data:</b> Google Sheet PSFU Body &amp; Paint (satu file per bulan, tab per tanggal di dalamnya) — <a id="sheetLink" href="#" target="_blank" rel="noopener">buka sheet bulan terpilih</a>. Halaman ini menggabungkan semua tab tanggal dalam rentang yang dipilih, dan memuat ulang otomatis setiap <span id="refreshSecLabel">30</span> detik langsung dari sheet, tanpa server perantara.</div>
+    <div>Rentang tanggal default adalah <b>1 sampai H-4</b> (zona waktu Asia/Jakarta) karena proses follow up telepon PSFU baru selesai sekitar H+3 setelah kendaraan keluar — dengan batas akhir H-4 data yang tampil sudah lengkap/final (bukan status "Belum Direspon" yang masih berjalan). Gunakan pemilih "Dari Tanggal" / "Sampai Tanggal" di atas untuk melihat rentang lain, atau tombol "Default" untuk kembali ke rentang standar.</div>
+    <div>Tab <b>"Highlight Kurang Puas"</b> hanya menampilkan pelanggan yang menyatakan kurang puas dalam rentang tanggal terpilih (ringkasan rate, breakdown komplain per bagian, dan daftar detailnya) — cocok untuk dipantau cepat. Tab <b>"Detail Semua PKB"</b> berisi seluruh data kendaraan pada rentang tersebut (semua status: Puas / Kurang Puas / Belum Direspon) untuk penelusuran lebih lanjut.</div>
+    <div>Kolom <b>Teknisi / Foreman</b> belum tersedia di sheet sumber saat ini (hanya nama SA yang tercatat), sehingga untuk komplain bagian Produksi &amp; Teknis kolom ini ditampilkan "belum tercatat". Tambahkan kolom Teknisi/Foreman di sheet jika ingin pelacakan sampai ke nama mekanik.</div>
+    <div>Klasifikasi "Bagian" untuk komplain negatif dibuat otomatis dari kata kunci pada catatan pelanggan (sheet sumber tidak selalu mengisi kategori komplain), jadi hasilnya adalah perkiraan terbaik — mohon dikoreksi manual di sheet bila diperlukan. Sheet Body &amp; Paint ini tidak memiliki kolom kategori terpisah untuk feedback positif (kolom "Positive Experience" berisi teks bebas), jadi feedback positif diklasifikasi ke bagian dengan kata kunci yang sama, supaya persentase puas per bagian tetap bisa dihitung.</div>
+    <div>Kolom <b>Q1 (FIR)</b>, <b>Q2 (OTD)</b> dan <b>Q3 (Reas. OTD)</b> diambil apa adanya dari sheet sumber (tanda "O" dianggap tercapai/lulus, kosong dianggap belum/tidak berlaku); rate pada kartu ringkasan dihitung dari proporsi "O" terhadap PKB yang sudah diisi tanda pada rentang tanggal terpilih. Kolom <b>Asuransi (INS.)</b> ditampilkan sebagai teks/badge — nilai apa pun yang terisi dianggap PKB tersebut menggunakan asuransi, dan kartu "Distribusi Asuransi" merangkum sebarannya (termasuk yang tanpa asuransi) untuk seluruh PKB pada rentang tanggal, bukan hanya yang kurang puas.</div>
+    <div>Kolom <b>Q1 (FIR)</b> juga dipakai untuk melacak <b>Return Job</b>: kalau unit tidak lulus FIR saat serah terima dan harus balik lagi ke bengkel, sel kolom ini diisi teks "Datang" (pelanggan sudah bawa kembali unitnya) atau "Tidak Datang" (belum/tidak kembali) menggantikan tanda "O". Halaman ini menghitung PKB dengan nilai Q1 selain "O"/kosong sebagai "Non-FIR", dan menampilkan sebaran Datang/Tidak Datang beserta daftar unitnya di bagian "Return Job (Non-FIR)" pada tab Highlight. Data September ini belum ada kasus Non-FIR, jadi bagian ini akan kosong sampai ada kasus baru.</div>
+    <div>Gunakan pemilih <b>"Bulan"</b> di atas untuk berpindah antar sheet PSFU Body &amp; Paint per bulan (satu file Google Sheet terpisah per bulan). Saat ini baru sheet <b>September 2026</b> yang tersedia, sehingga pilihan bulan lain belum muncul di dropdown. Begitu bengkel membuat sheet bulan baru, tambahkan entrinya (bulan, tahun, ID sheet) ke daftar <code>MONTH_SHEETS</code> pada kode halaman ini — dropdown &amp; jumlah tanggal yang tersedia akan menyesuaikan otomatis.</div>
+  </footer>
+
+</div>
+
+<script>
+(function(){
+  "use strict";
+
+  // ====== CONFIG — one Google Sheet file per month (all shared from the same
+  // Drive folder). Add an entry here { month, year, id } when a new month's
+  // sheet is created; the "Bulan" dropdown is built straight from this list,
+  // so it only shows months that actually have a sheet configured. ======
+  var MONTH_SHEETS = [
+    { month:9, year:2026, id:"19bwjxG2Jxm7KjOani0PH0h-pKd5haoWskWQ9FleSlLQ" } // September 2026
+  ];
+
+  function getMonthConfig(monthNum){
+    for (var i=0;i<MONTH_SHEETS.length;i++){
+      if (MONTH_SHEETS[i].month === monthNum) return MONTH_SHEETS[i];
+    }
+    return null;
+  }
+
+  // Active month state — set by applyMonth(), read everywhere else. Kept as
+  // plain vars (not re-derived inline) so the rest of the code below doesn't
+  // need to change just because the sheet is now picked via a dropdown.
+  var SHEET_ID, SHEET_YEAR, SHEET_MONTH, SHEET_MAX_DAY;
+  var REFRESH_MS = 30000;   // auto-refresh interval
+
+  function daysInMonth(year, month){
+    return new Date(year, month, 0).getDate(); // day 0 = last day of the previous (0-based) month
+  }
+
+  // Switches the active sheet/month. Repopulates the date dropdowns for the
+  // new month's day count and, by default, resets the range to 1–H-4 (same
+  // default logic as before, now relative to whichever month is selected).
+  function applyMonth(monthNum, opts){
+    opts = opts || {};
+    var cfg = getMonthConfig(monthNum);
+    if (!cfg) return;
+    SHEET_ID = cfg.id;
+    SHEET_YEAR = cfg.year;
+    SHEET_MONTH = monthNum;
+    SHEET_MAX_DAY = daysInMonth(SHEET_YEAR, SHEET_MONTH);
+
+    document.getElementById('sheetLink').href = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
+
+    var fromSelect = document.getElementById('fromDaySelect');
+    var toSelect = document.getElementById('toDaySelect');
+    var prevFrom = fromSelect.value, prevTo = toSelect.value;
+    var opts_html = '';
+    for (var d=1; d<=SHEET_MAX_DAY; d++){
+      opts_html += '<option value="'+d+'">'+fmtDate(d)+'</option>';
+    }
+    fromSelect.innerHTML = opts_html;
+    toSelect.innerHTML = opts_html;
+
+    if (opts.resetRange){
+      fromSelect.value = defaultFromDay();
+      toSelect.value = defaultToDay();
+    } else {
+      // Keep the same day numbers when possible (e.g. switching month while
+      // browsing), clamped to the new month's day count.
+      fromSelect.value = Math.min(parseInt(prevFrom,10) || 1, SHEET_MAX_DAY);
+      toSelect.value = Math.min(parseInt(prevTo,10) || SHEET_MAX_DAY, SHEET_MAX_DAY);
+    }
+    checkMonthMismatch();
+  }
+
+  var AREAS = [
+    { key:"Petugas & SA",        slot:"--slot-1",
+      kw:["komunikasi","petugas","respon","informasi","kurang nyaman","tidak ramah","pelayanan","dijelaskan","follow up","ramah"] },
+    { key:"Produksi & Teknis",   slot:"--slot-2",
+      kw:["bunyi","part","oli","rem","ban ","aki","mesin","kelistrikan","kaca","kunci","kamera","lampu","steer","kopling","radiator","shock","mekanik","pengerjaan","diagnosa","pasang","ganti","kabel","sensor","bocor","rembes","seatbelt","label oli","speaker","wiper","cover","perbaikan","hasil"] },
+    { key:"Fasilitas",           slot:"--slot-3",
+      kw:["fasilitas","aksesoris","kelengkapan","ruang tunggu","toilet","parkir"] },
+    { key:"Kenyamanan",          slot:"--slot-4",
+      kw:["nyaman","suasana","cozy"] },
+    { key:"Waktu Tunggu",        slot:"--slot-5",
+      kw:["lead time lama","waktu tunggu","antri","terlambat","telat","menunggu","jam "] },
+    { key:"Kebersihan Cuci",     slot:"--slot-6",
+      kw:["cuci","kotor","debu","noda"] },
+    { key:"Administrasi",        slot:"--slot-7",
+      kw:["transfer","bayar","invoice","kwitansi","admin","kelebihan","refund","dana","reminder service belum"] },
+    { key:"Lainnya",             slot:"--slot-8", kw:[] }
+  ];
+
+  // Second, finer-grained classification layer for the "Breakdown Kategori Komplain"
+  // chart — cuts across the AREAS above instead of replacing them. Noise/Mekanikal/
+  // Elektrikal only apply within "Produksi & Teknis" complaints (their combined
+  // keyword lists are exactly the Produksi & Teknis keyword list above, split three
+  // ways, so every Produksi & Teknis complaint is guaranteed to match one of them).
+  // SOP covers all of "Petugas & SA" plus any "Lainnya" complaint that also reads as
+  // a service/SOP issue (checked with a slightly wider keyword list, since "Lainnya"
+  // by definition already missed every AREAS keyword).
+  var SUBCATS = [
+    { key:"Noise (Bunyi)", slot:"--subslot-1" },
+    { key:"Mekanikal",     slot:"--subslot-2" },
+    { key:"Elektrikal",    slot:"--subslot-3" },
+    { key:"SOP",           slot:"--subslot-4" }
+  ];
+  var SUBCAT_KW = {
+    noise:        ["bunyi"],
+    // "pengerjaan" sengaja dipisah dari mekanikal ke SOP (atas permintaan user: komplain yang
+    // menyebut proses/lama pengerjaan dianggap soal SOP/prosedur, bukan kerusakan mekanikal itu sendiri).
+    sopFromTeknis:["pengerjaan"],
+    mekanikal:    ["part","oli","rem","ban ","mesin","kopling","radiator","shock","mekanik","diagnosa","pasang","ganti","bocor","rembes","seatbelt","label oli","wiper","cover","kunci","steer","perbaikan","hasil"],
+    elektrikal:   ["aki","kelistrikan","kaca","kamera","lampu","kabel","sensor","speaker"],
+    sopExtra:     ["komunikasi","petugas","respon","informasi","kurang nyaman","tidak ramah","pelayanan","dijelaskan","follow up","sop","prosedur","koordinasi","proses","penjelasan","sikap"]
+  };
+  function matchAny(lower, list){
+    for (var i=0;i<list.length;i++){ if (lower.indexOf(list[i]) !== -1) return true; }
+    return false;
+  }
+  function classifySubCategory(rec){
+    if (rec.status !== 'Kurang Puas' || !rec.negText) return '';
+    var lower = rec.negText.toLowerCase();
+    if (rec.area === 'Produksi & Teknis'){
+      if (matchAny(lower, SUBCAT_KW.sopFromTeknis)) return 'SOP';
+      if (matchAny(lower, SUBCAT_KW.noise)) return 'Noise (Bunyi)';
+      if (matchAny(lower, SUBCAT_KW.elektrikal)) return 'Elektrikal';
+      if (matchAny(lower, SUBCAT_KW.mekanikal)) return 'Mekanikal';
+      return 'Mekanikal'; // safety net only — Produksi & Teknis keywords are a subset of the lists above, so this normally never triggers
+    }
+    if (rec.area === 'Petugas & SA') return 'SOP';
+    if (rec.area === 'Lainnya' && matchAny(lower, SUBCAT_KW.sopExtra)) return 'SOP';
+    return '';
+  }
+
+  // ---------- date helpers (Asia/Jakarta) ----------
+  function jakartaTodayParts(){
+    var fmt = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Jakarta', year:'numeric', month:'2-digit', day:'2-digit'});
+    var parts = fmt.formatToParts(new Date());
+    var o = {};
+    parts.forEach(function(p){ o[p.type] = p.value; });
+    return { y: parseInt(o.year,10), m: parseInt(o.month,10), d: parseInt(o.day,10) };
+  }
+  function defaultFromDay(){
+    return 1;
+  }
+  function defaultToDay(){
+    var t = jakartaTodayParts();
+    if (t.y === SHEET_YEAR && t.m === SHEET_MONTH){
+      // H-4: proses follow up PSFU baru tuntas di sekitar H+3, jadi H-4 memastikan
+      // data yang ditampilkan sudah benar-benar final/realtime, bukan yang masih berjalan.
+      return Math.max(1, t.d - 4);
+    }
+    // outside this sheet's month: show banner, fall back to last day of sheet
+    return SHEET_MAX_DAY;
+  }
+  function checkMonthMismatch(){
+    var t = jakartaTodayParts();
+    var banner = document.getElementById('monthBanner');
+    if (t.y !== SHEET_YEAR || t.m !== SHEET_MONTH){
+      banner.style.display = 'block';
+      banner.textContent = 'Perhatian: bulan yang sedang ditampilkan adalah ' + monthName(SHEET_MONTH) + ' ' + SHEET_YEAR + ', sedangkan tanggal hari ini di luar bulan tersebut. Gunakan pemilih "Bulan" di atas untuk beralih ke bulan berjalan (jika sudah tersedia).';
+    } else {
+      banner.style.display = 'none';
+    }
+  }
+  function monthName(m){
+    return ["Januari","Februari","Maret","April","Mei","Juni","Juli","Agustus","September","Oktober","November","Desember"][m-1];
+  }
+  var MONTH_SHORT = ["Jan","Feb","Mar","Apr","Mei","Jun","Jul","Ags","Sep","Okt","Nov","Des"];
+  function fmtDate(d){
+    return d + ' ' + monthName(SHEET_MONTH) + ' ' + SHEET_YEAR;
+  }
+  function fmtDateShort(d){
+    return d + ' ' + MONTH_SHORT[SHEET_MONTH-1];
+  }
+  function rangeLabel(fromDay, toDay){
+    if (fromDay === toDay) return fmtDate(fromDay);
+    return fromDay + '–' + toDay + ' ' + monthName(SHEET_MONTH) + ' ' + SHEET_YEAR;
+  }
+
+  // ---------- Google Visualization JSON-P table -> plain row arrays ----------
+  // We deliberately avoid fetch()/XHR here: pages opened as a local file (file://)
+  // or inside a sandboxed artifact viewer send "Origin: null", and Google's gviz
+  // endpoint does not return an Access-Control-Allow-Origin header for that origin,
+  // so fetch() gets blocked by CORS no matter how the sheet is shared. Loading the
+  // same endpoint as a <script src> (JSONP) is exempt from CORS entirely — the
+  // browser just executes the returned script, which calls our callback directly.
+  function tableToRows(table){
+    var colCount = table.cols.length;
+    return table.rows.map(function(r){
+      var arr = [];
+      for (var i=0;i<colCount;i++){
+        var cell = r.c[i];
+        arr.push((cell && cell.v !== null && cell.v !== undefined) ? cell.v : '');
+      }
+      return arr;
+    });
+  }
+
+  function norm(s){ return (s===undefined || s===null) ? '' : String(s).trim(); }
+
+  // The Q1 (FIR) column (column K in the sheet) doubles as the Return Job
+  // tracker: it's normally "O" (passed first item repair), but when a unit
+  // fails FIR and has to come back for rework, the SA replaces that cell's
+  // value with "Datang" (customer already brought the car back) or "Tidak
+  // Datang" (not yet / didn't come back), instead of a separate column.
+  function returnJobStatus(q1Val){
+    var v = norm(q1Val).toLowerCase();
+    if (v === 'datang') return 'Datang';
+    if (v === 'tidak datang') return 'Tidak Datang';
+    return '';
+  }
+
+  // Body & Paint's sheet has no separate "positive category" column (unlike the
+  // original PSFU sheet) — "Positive Experience" is free text, same as "Negative
+  // Experience". So both are classified into a Bagian the same way, by keyword
+  // match against whichever text the record has.
+  function classifyArea(rec){
+    var text = rec.negText || rec.posText;
+    if (!text) return "";
+    var lower = text.toLowerCase();
+    for (var i=0;i<AREAS.length-1;i++){
+      var a = AREAS[i];
+      for (var j=0;j<a.kw.length;j++){
+        if (lower.indexOf(a.kw[j]) !== -1) return a.key;
+      }
+    }
+    return "Lainnya";
+  }
+
+  function parseSheetRows(rows){
+    var headerIdx = -1;
+    for (var i=0;i<rows.length;i++){
+      var r = rows[i];
+      // Column C ("SA") / D ("No. Polisi") stay text-typed regardless of the
+      // numeric "No" column next to them, so they're a reliable way to find
+      // the header row even when Google's gviz JSON infers "No" as a number
+      // column and drops its own header text.
+      if (norm(r[2]) === 'SA' && norm(r[3]).indexOf('Polisi') !== -1){
+        headerIdx = i; break;
+      }
+    }
+    var records = [];
+    if (headerIdx === -1) return records;
+    for (var ri = headerIdx+1; ri < rows.length; ri++){
+      var row = rows[ri];
+      var noVal = norm(row[1]);
+      if (!/^\d+(\.\d+)?$/.test(noVal)) continue; // legend/blank rows have no "No" at all
+      var saVal = norm(row[2]);
+      var plateVal = norm(row[3]);
+      if (!saVal && !plateVal) continue; // template row pre-numbered but no vehicle registered yet
+      var visitStatus = norm(row[7]);
+      var statusCall = norm(row[8]);
+      var q1Fir = norm(row[10]);
+      var q2Otd = norm(row[12]);
+      var q3ReasOtd = norm(row[13]);
+      var posText = norm(row[15]);
+      var negText = norm(row[17]);
+      var asuransi = norm(row[19]);
+      var rec = {
+        no: noVal,
+        sa: saVal,
+        plate: plateVal,
+        model: norm(row[4]),
+        visitStatus: visitStatus,
+        statusCall: statusCall,
+        q1Fir: q1Fir,
+        q2Otd: q2Otd,
+        q3ReasOtd: q3ReasOtd,
+        posText: posText,
+        negText: negText,
+        asuransi: asuransi
+      };
+      rec.returnJob = returnJobStatus(q1Fir);
+      rec.status = statusCall === 'Contacted' ? (negText ? 'Kurang Puas' : 'Puas') : 'Belum Direspon';
+      rec.area = rec.status === 'Belum Direspon' ? '' : classifyArea(rec);
+      records.push(rec);
+    }
+    return records;
+  }
+
+  // ---------- rendering ----------
+  function esc(s){
+    return norm(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function renderKpis(records, fromDay, toDay){
+    var total = records.length;
+    var contacted = records.filter(function(r){return r.statusCall!=='';}).length; // any call attempt logged (Contacted/Connected/No Valid)
+    var puas = records.filter(function(r){return r.status==='Puas';}).length;
+    var kurang = records.filter(function(r){return r.status==='Kurang Puas';}).length;
+    var callRate = total ? Math.round((contacted/total)*100) : 0;
+    var respondedTotal = puas + kurang;
+
+    function qRate(field){
+      var filled = records.filter(function(r){return r[field]!=='';});
+      if (!filled.length) return { rate:null, n:0 };
+      var pass = filled.filter(function(r){return r[field].toUpperCase()==='O';}).length;
+      return { rate: Math.round((pass/filled.length)*100), n: filled.length };
+    }
+    var fir = qRate('q1Fir');
+    var otd = qRate('q2Otd');
+    var reasOtd = qRate('q3ReasOtd');
+
+    var asuransiN = records.filter(function(r){return r.asuransi!=='';}).length;
+    var asuransiPct = total ? Math.round((asuransiN/total)*100) : 0;
+
+    var nonFir = records.filter(function(r){return r.q1Fir!=='' && r.q1Fir.toUpperCase()!=='O';});
+    var rjDatang = nonFir.filter(function(r){return r.returnJob==='Datang';}).length;
+    var rjTidak = nonFir.filter(function(r){return r.returnJob==='Tidak Datang';}).length;
+
+    var tiles = [
+      {label:"Total PKB", value: total, sub: total + " kendaraan terdaftar " + rangeLabel(fromDay, toDay)},
+      {label:"Sudah Diproses PSFU", value: callRate + "%", sub: contacted + " dari " + total + " PKB (termasuk yang tidak tersambung)"},
+      {label:"Apresiasi (Puas)", value: puas, sub: respondedTotal ? Math.round((puas/respondedTotal)*100)+"% dari yang sudah selesai ditelepon" : "belum ada respon", cls:"good"},
+      {label:"Komplain (Kurang Puas)", value: kurang, sub: respondedTotal ? Math.round((kurang/respondedTotal)*100)+"% dari yang sudah selesai ditelepon" : "belum ada respon", cls: kurang>0 ? "bad" : ""},
+      {label:"Q1 · FIR Rate", value: fir.rate!==null ? fir.rate+"%" : "–", sub: fir.n + " PKB dinilai"},
+      {label:"Q2 · OTD Rate", value: otd.rate!==null ? otd.rate+"%" : "–", sub: otd.n + " PKB dinilai"},
+      {label:"Q3 · Reas. OTD Rate", value: reasOtd.rate!==null ? reasOtd.rate+"%" : "–", sub: reasOtd.n + " PKB dinilai"},
+      {label:"PKB Pakai Asuransi", value: asuransiN, sub: asuransiPct + "% dari total " + total + " PKB"},
+      {label:"Return Job (Non-FIR)", value: nonFir.length, sub: nonFir.length ? (rjDatang+" datang · "+rjTidak+" belum datang") : "tidak ada Non-FIR", cls: nonFir.length>0 ? "bad" : ""}
+    ];
+    var html = tiles.map(function(t){
+      return '<div class="stat-tile '+(t.cls||'')+'"><div class="label">'+t.label+'</div><div class="value">'+t.value+'</div><div class="sub">'+t.sub+'</div></div>';
+    }).join('');
+    document.getElementById('kpiRow').innerHTML = html;
+  }
+
+  function renderAreaCards(records){
+    var grid = document.getElementById('areaGrid');
+    var cards = [];
+    var activeAreas = 0;
+    var totalComplaints = 0;
+    AREAS.forEach(function(a){
+      var inArea = records.filter(function(r){ return r.area === a.key; });
+      var puasRecs = inArea.filter(function(r){return r.status==='Puas';});
+      var kurangRecs = inArea.filter(function(r){return r.status==='Kurang Puas';});
+      var puasN = puasRecs.length, kurangN = kurangRecs.length, denom = puasN+kurangN;
+      if (kurangN === 0) return; // this section is complaints-only now — nothing to show for a clean area
+      activeAreas++;
+      totalComplaints += kurangN;
+      var puasPct = denom ? Math.round((puasN/denom)*100) : 0;
+      var kurangPct = 100-puasPct;
+      var sorted = kurangRecs.slice().sort(function(x,y){
+        if (y.day !== x.day) return y.day - x.day; // most recent complaint first
+        return y.negText.length - x.negText.length;
+      });
+
+      var boxes = sorted.map(function(rec){
+        return '<div class="highlight-box neg"><span class="tag">'+fmtDateShort(rec.day)+' · '+esc(rec.plate)+' — '+esc(rec.sa)+'</span>'+esc(rec.negText)+'</div>';
+      }).join('');
+
+      cards.push(
+        '<div class="area-card">'+
+          '<div class="head"><span class="area-chip"><span class="swatch" style="background:var('+a.slot+')"></span>'+a.key+'</span>'+
+          '<span class="rate">'+kurangN+' komplain dari '+denom+' respon</span></div>'+
+          '<div class="meter"><div class="seg-good" style="width:'+puasPct+'%"></div><div class="seg-bad" style="width:'+kurangPct+'%"></div></div>'+
+          '<div class="area-counts"><span><b>'+puasPct+'%</b> puas</span><span><b>'+kurangPct+'%</b> kurang puas</span></div>'+
+          boxes+
+        '</div>'
+      );
+    });
+    document.getElementById('areaCountPill').textContent = activeAreas + ' bagian dengan komplain · ' + totalComplaints + ' total';
+    grid.innerHTML = cards.join('') || '<div class="empty-note">Tidak ada komplain pada rentang tanggal ini — semua feedback yang sudah diproses menyatakan puas.</div>';
+  }
+
+  function renderReturnJobSection(records){
+    var nonFir = records.filter(function(r){return r.q1Fir!=='' && r.q1Fir.toUpperCase()!=='O';});
+    var card = document.getElementById('returnJobCard');
+
+    if (!nonFir.length){
+      document.getElementById('returnJobPill').textContent = 'tidak ada kendaraan Non-FIR pada rentang ini';
+      card.innerHTML = '<div class="empty-note">Semua kendaraan lulus Q1 (FIR) pada rentang tanggal ini — tidak ada yang perlu return job.</div>';
+      return;
+    }
+
+    var datangRecs = nonFir.filter(function(r){return r.returnJob==='Datang';});
+    var tidakRecs = nonFir.filter(function(r){return r.returnJob==='Tidak Datang';});
+    var lainRecs = nonFir.filter(function(r){return !r.returnJob;});
+
+    document.getElementById('returnJobPill').textContent =
+      nonFir.length + ' kendaraan Non-FIR · ' + datangRecs.length + ' sudah datang · ' + tidakRecs.length + ' belum datang' +
+      (lainRecs.length ? ' · ' + lainRecs.length + ' belum ada status' : '');
+
+    var barGroups = [
+      { key:'Datang', n:datangRecs.length, color:'var(--good)' },
+      { key:'Tidak Datang', n:tidakRecs.length, color:'var(--critical)' },
+      { key:'Belum Ada Status', n:lainRecs.length, color:'var(--baseline)' }
+    ].filter(function(g){return g.n>0;});
+
+    var barsHtml = barGroups.map(function(g){
+      var pct = Math.round((g.n/nonFir.length)*100);
+      var labelText = g.n + ' (' + pct + '%)';
+      var fitsInside = pct >= 18;
+      return '<div class="bar-row">'+
+        '<div class="bar-row-label"><span class="swatch" style="background:'+g.color+'"></span>'+g.key+'</div>'+
+        '<div class="bar-track">'+
+          '<div class="bar-fill" style="width:'+pct+'%; background:'+g.color+'">'+
+            (fitsInside ? '<span class="bar-fill-label">'+labelText+'</span>' : '') +
+          '</div>'+
+          (fitsInside ? '' : '<span class="bar-label-outside" style="left:calc('+pct+'% + 8px)">'+labelText+'</span>') +
+        '</div>'+
+      '</div>';
+    }).join('');
+
+    var sortedList = nonFir.slice().sort(function(x,y){return y.day-x.day;});
+    var boxesHtml = sortedList.map(function(rec){
+      var cls = rec.returnJob === 'Datang' ? 'pos' : (rec.returnJob === 'Tidak Datang' ? 'neg' : 'neu');
+      var statusLabel = rec.returnJob || 'Belum ada status';
+      var note = rec.negText || rec.posText || '';
+      return '<div class="highlight-box '+cls+'"><span class="tag">'+fmtDateShort(rec.day)+' · '+esc(rec.plate)+' — '+esc(rec.sa)+' · '+esc(statusLabel)+'</span>'+(note?esc(note):'<span class="note-muted">tidak ada catatan</span>')+'</div>';
+    }).join('');
+
+    card.innerHTML =
+      '<div class="breakdown-body" style="margin-bottom:14px;">'+barsHtml+'</div>'+
+      '<div class="subcat-detail-list" style="max-height:360px;">'+boxesHtml+'</div>';
+  }
+
+  function renderDonut(donutId, pctId, puasN, kurangN){
+    var denom = puasN + kurangN;
+    var donut = document.getElementById(donutId);
+    var pctEl = document.getElementById(pctId);
+    if (!denom){
+      donut.style.background = 'var(--gridline)';
+      pctEl.textContent = '–';
+      return;
+    }
+    var puasPct = Math.round((puasN/denom)*100);
+    var deg = (puasPct/100)*360;
+    donut.style.background = 'conic-gradient(var(--good) 0deg ' + deg + 'deg, var(--critical) ' + deg + 'deg 360deg)';
+    pctEl.textContent = puasPct + '%';
+  }
+
+  function renderDonutLegend(legendId, puasN, kurangN){
+    var denom = puasN + kurangN;
+    var el = document.getElementById(legendId);
+    if (!denom){
+      el.innerHTML = '<div class="donut-empty">Belum ada PKB yang selesai diproses PSFU</div>';
+      return;
+    }
+    var puasPct = Math.round((puasN/denom)*100);
+    var kurangPct = 100 - puasPct;
+    el.innerHTML =
+      '<div class="donut-legend-item"><span class="donut-legend-swatch" style="background:var(--good)"></span><b>Puas</b><span class="n">'+puasN+' ('+puasPct+'%)</span></div>'+
+      '<div class="donut-legend-item"><span class="donut-legend-swatch" style="background:var(--critical)"></span><b>Kurang Puas</b><span class="n">'+kurangN+' ('+kurangPct+'%)</span></div>';
+  }
+
+  function renderRateDonut(records, fromDay, toDay){
+    var puasN = records.filter(function(r){return r.status==='Puas';}).length;
+    var kurangN = records.filter(function(r){return r.status==='Kurang Puas';}).length;
+    renderDonut('donutRate', 'donutRatePct', puasN, kurangN);
+    renderDonutLegend('donutRateLegend', puasN, kurangN);
+    var label = rangeLabel(fromDay, toDay);
+    document.getElementById('rangeLabelA').textContent = label;
+    document.getElementById('rangeLabelB').textContent = label;
+    document.getElementById('rangeLabelC').textContent = label;
+  }
+
+  function renderAreaBreakdown(records){
+    var kurangAll = records.filter(function(r){return r.status==='Kurang Puas';});
+    var total = kurangAll.length;
+    var el = document.getElementById('areaBreakdown');
+    if (!total){
+      el.innerHTML = '<div class="donut-empty">Tidak ada komplain pada rentang tanggal ini.</div>';
+      return;
+    }
+    var rows = AREAS.map(function(a){
+      var n = kurangAll.filter(function(r){return r.area===a.key;}).length;
+      return { key:a.key, slot:a.slot, n:n };
+    }).filter(function(x){return x.n>0;});
+    rows.sort(function(x,y){return y.n-x.n;}); // sort rows for readability — color stays fixed per area (see slot map)
+    el.innerHTML = rows.map(function(r){
+      var pct = Math.round((r.n/total)*100);
+      var labelText = r.n + ' (' + pct + '%)';
+      var fitsInside = pct >= 18; // rough threshold — short label needs ~18% of bar width to sit inside comfortably
+      return '<div class="bar-row">'+
+        '<div class="bar-row-label"><span class="swatch" style="background:var('+r.slot+')"></span>'+r.key+'</div>'+
+        '<div class="bar-track">'+
+          '<div class="bar-fill" style="width:'+pct+'%; background:var('+r.slot+')">'+
+            (fitsInside ? '<span class="bar-fill-label">'+labelText+'</span>' : '') +
+          '</div>'+
+          (fitsInside ? '' : '<span class="bar-label-outside" style="left:calc('+pct+'% + 8px)">'+labelText+'</span>') +
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // Sheet-specific: the "Asuransi" (INS.) column has no fixed set of values —
+  // it's whatever insurer name/code the SA types in, or blank when the job
+  // isn't an insurance claim. Colors are assigned dynamically from a small
+  // rotating palette rather than a fixed CSS var per key (unlike AREAS/SUBCATS,
+  // whose categories are known ahead of time).
+  var INSURANCE_PALETTE = ['#2a78d6','#d6591f','#12946a','#b9790a','#c05a86','#2f8f2f','#4a3aa7','#c93f3f','#0a9396','#8a5b2e'];
+
+  function renderInsuranceBreakdown(records){
+    var total = records.length;
+    var el = document.getElementById('insuranceBreakdown');
+    if (!total){
+      el.innerHTML = '<div class="donut-empty">Tidak ada PKB pada rentang tanggal ini.</div>';
+      return;
+    }
+    var counts = {};
+    records.forEach(function(r){
+      var key = r.asuransi ? r.asuransi : 'Tanpa Asuransi';
+      counts[key] = (counts[key] || 0) + 1;
+    });
+    var insurerKeys = Object.keys(counts).filter(function(k){return k!=='Tanpa Asuransi';})
+      .sort(function(a,b){ return counts[b]-counts[a]; });
+    var rows = insurerKeys.map(function(k,i){
+      return { key:k, n:counts[k], color: INSURANCE_PALETTE[i % INSURANCE_PALETTE.length] };
+    });
+    if (counts['Tanpa Asuransi']) rows.push({ key:'Tanpa Asuransi', n:counts['Tanpa Asuransi'], color:'var(--baseline)' });
+
+    el.innerHTML = rows.map(function(r){
+      var pct = Math.round((r.n/total)*100);
+      var labelText = r.n + ' (' + pct + '%)';
+      var fitsInside = pct >= 18;
+      return '<div class="bar-row">'+
+        '<div class="bar-row-label"><span class="swatch" style="background:'+r.color+'"></span>'+esc(r.key)+'</div>'+
+        '<div class="bar-track">'+
+          '<div class="bar-fill" style="width:'+pct+'%; background:'+r.color+'">'+
+            (fitsInside ? '<span class="bar-fill-label">'+labelText+'</span>' : '') +
+          '</div>'+
+          (fitsInside ? '' : '<span class="bar-label-outside" style="left:calc('+pct+'% + 8px)">'+labelText+'</span>') +
+        '</div>'+
+      '</div>';
+    }).join('');
+  }
+
+  // ---------- Breakdown Kategori Komplain (clickable donut: Noise/Mekanikal/Elektrikal/SOP) ----------
+  var SUBCAT_DATA = [];
+  var selectedSubcat = null;
+
+  function renderSubCatBreakdown(records){
+    var kurangAll = records.filter(function(r){return r.status==='Kurang Puas';});
+    kurangAll.forEach(function(r){ r.subcat = classifySubCategory(r); });
+    var matched = kurangAll.filter(function(r){return r.subcat;});
+    var totalKurang = kurangAll.length;
+    var totalMatched = matched.length;
+
+    document.getElementById('subCatPill').textContent = totalKurang
+      ? totalMatched + ' dari ' + totalKurang + ' komplain tercakup (' + Math.round((totalMatched/totalKurang)*100) + '%)'
+      : 'tidak ada komplain pada rentang ini';
+
+    var counts = SUBCATS.map(function(s){
+      var recs = matched.filter(function(r){return r.subcat===s.key;});
+      return { key:s.key, slot:s.slot, count:recs.length, records:recs };
+    });
+    SUBCAT_DATA = counts;
+
+    var wrap = document.getElementById('subCatDonutWrap');
+    var legendEl = document.getElementById('subCatLegend');
+
+    if (!totalMatched){
+      wrap.innerHTML = '<div class="donut" style="background:var(--gridline); width:150px; height:150px;"></div>';
+      legendEl.innerHTML = '<div class="donut-empty">Tidak ada komplain yang cocok kategori Noise/Mekanikal/Elektrikal/SOP pada rentang ini.</div>';
+      selectedSubcat = null;
+      renderSubCatDetail(null);
+      return;
+    }
+
+    var r = 42, circ = 2*Math.PI*r, cum = 0, gap = 1.6;
+    var arcParts = [], labelParts = [];
+    counts.filter(function(c){return c.count>0;}).forEach(function(c){
+      var frac = c.count/totalMatched;
+      var len = frac*circ;
+      var offset = -cum;
+      var startDeg = (cum/circ)*360;
+      var midDeg = startDeg + (frac*360)/2;
+      cum += len;
+      var dashLen = Math.max(len-gap, 0);
+      arcParts.push('<circle class="subcat-arc" data-key="'+esc(c.key)+'" cx="50" cy="50" r="'+r+'" fill="none" '+
+        'stroke="var('+c.slot+')" stroke-width="16" stroke-dasharray="'+dashLen.toFixed(2)+' '+(circ-dashLen).toFixed(2)+'" '+
+        'stroke-dashoffset="'+offset.toFixed(2)+'"></circle>');
+
+      // Data label for this slice, placed on the ring itself (clock-angle math done directly in
+      // absolute SVG coordinates, since the arcs live inside a rotate(-90) group but this label
+      // group does not — 0° here means 12 o'clock, increasing clockwise, matching the arcs above).
+      var pct = Math.round((c.count/totalMatched)*100);
+      var rad = (midDeg*Math.PI)/180;
+      var lx = 50 + r*Math.sin(rad);
+      var ly = 50 - r*Math.cos(rad);
+      var showCount = pct >= 12; // very thin slices only get room for the percentage
+      labelParts.push(
+        '<text x="'+lx.toFixed(2)+'" y="'+ly.toFixed(2)+'" text-anchor="middle" dominant-baseline="middle" class="subcat-arc-label" data-key="'+esc(c.key)+'">'+
+          (showCount ? '<tspan x="'+lx.toFixed(2)+'" dy="-2.3" class="sal-num">'+c.count+'</tspan>' : '') +
+          '<tspan x="'+lx.toFixed(2)+'" dy="'+(showCount?'6.1':'1.2')+'" class="sal-pct">'+pct+'%</tspan>'+
+        '</text>'
+      );
+    });
+
+    wrap.innerHTML =
+      '<svg viewBox="0 0 100 100" width="150" height="150">'+
+        '<g transform="rotate(-90 50 50)">'+arcParts.join('')+'</g>'+
+        labelParts.join('')+
+      '</svg>'+
+      '<div class="subcat-center-label"><div class="subcat-center-value">'+totalMatched+'</div><div class="subcat-center-label-text">komplain</div></div>';
+
+    legendEl.innerHTML = counts.map(function(c){
+      var pct = Math.round((c.count/totalMatched)*100);
+      return '<div class="subcat-legend-item" data-key="'+esc(c.key)+'"><span class="subcat-legend-swatch" style="background:var('+c.slot+')"></span><b>'+c.key+'</b><span class="n">'+c.count+' ('+pct+'%)</span></div>';
+    }).join('');
+
+    var clickHandler = function(){
+      var key = this.getAttribute('data-key');
+      selectSubcat(key === selectedSubcat ? null : key);
+    };
+    var arcEls = wrap.querySelectorAll('.subcat-arc');
+    for (var i=0;i<arcEls.length;i++){ arcEls[i].addEventListener('click', clickHandler); }
+    var legendEls = legendEl.querySelectorAll('.subcat-legend-item');
+    for (var j=0;j<legendEls.length;j++){ legendEls[j].addEventListener('click', clickHandler); }
+
+    // keep the selection across refreshes if that category still has data, otherwise clear it
+    if (selectedSubcat && counts.filter(function(c){return c.key===selectedSubcat && c.count>0;}).length){
+      selectSubcat(selectedSubcat);
+    } else {
+      selectedSubcat = null;
+      renderSubCatDetail(null);
+    }
+  }
+
+  function selectSubcat(key){
+    selectedSubcat = key;
+    var legendEls = document.querySelectorAll('.subcat-legend-item');
+    for (var i=0;i<legendEls.length;i++){
+      legendEls[i].classList.toggle('active', legendEls[i].getAttribute('data-key')===key);
+    }
+    var arcEls = document.querySelectorAll('.subcat-arc');
+    for (var j=0;j<arcEls.length;j++){
+      arcEls[j].classList.toggle('dimmed', !!key && arcEls[j].getAttribute('data-key')!==key);
+    }
+    var labelEls = document.querySelectorAll('.subcat-arc-label');
+    for (var k=0;k<labelEls.length;k++){
+      labelEls[k].classList.toggle('dimmed', !!key && labelEls[k].getAttribute('data-key')!==key);
+    }
+    renderSubCatDetail(key);
+  }
+
+  function renderSubCatDetail(key){
+    var el = document.getElementById('subCatDetail');
+    if (!key){
+      el.innerHTML = '<div class="subcat-detail-hint">Klik salah satu kategori pada chart atau daftar di atas untuk melihat detail keluhannya.</div>';
+      return;
+    }
+    var entry = SUBCAT_DATA.filter(function(c){return c.key===key;})[0];
+    if (!entry || !entry.count){
+      el.innerHTML = '<div class="subcat-detail-hint">Tidak ada data untuk kategori ini pada rentang ini.</div>';
+      return;
+    }
+    var sorted = entry.records.slice().sort(function(x,y){return y.day-x.day;});
+    var boxes = sorted.map(function(rec){
+      return '<div class="highlight-box neg"><span class="tag">'+fmtDateShort(rec.day)+' · '+esc(rec.plate)+' — '+esc(rec.sa)+'</span>'+esc(rec.negText)+'</div>';
+    }).join('');
+    el.innerHTML =
+      '<div class="subcat-detail-header">'+
+        '<div class="subcat-detail-title">Keluhan Kategori: <b>'+esc(key)+'</b><span class="count-pill">'+entry.count+' keluhan</span></div>'+
+        '<button class="subcat-detail-close" id="btnCloseSubcat" type="button">Tutup ✕</button>'+
+      '</div>'+
+      '<div class="subcat-detail-list">'+boxes+'</div>';
+    document.getElementById('btnCloseSubcat').addEventListener('click', function(){ selectSubcat(null); });
+  }
+
+  var RANGE_RECORDS = [];
+
+  function fmtNo(no){
+    return /^\d+\.0+$/.test(no) ? no.split('.')[0] : no;
+  }
+
+  function visitBadge(val){
+    if (!val) return '<span class="note-muted">–</span>';
+    var cls = val.toLowerCase().indexOf('loyal') !== -1 ? 'loyal' : 'new';
+    return '<span class="badge '+cls+'">'+esc(val)+'</span>';
+  }
+  function qmarkBadge(val){
+    if (!val) return '<span class="note-muted">–</span>';
+    var pass = val.toUpperCase() === 'O';
+    return '<span class="qmark '+(pass?'pass':'fail')+'">'+esc(val)+'</span>';
+  }
+  // Q1 (FIR) column needs its own badge renderer: besides the plain "O" pass
+  // mark, it can hold "Datang"/"Tidak Datang" once a unit fails FIR and is
+  // tracked as a return job (see returnJobStatus()).
+  function q1Badge(val){
+    if (!val) return '<span class="note-muted">–</span>';
+    var v = norm(val);
+    var vLower = v.toLowerCase();
+    if (vLower === 'o') return '<span class="qmark pass">'+esc(v)+'</span>';
+    if (vLower === 'datang') return '<span class="badge rj-datang">Datang</span>';
+    if (vLower === 'tidak datang') return '<span class="badge rj-tidak">Tidak Datang</span>';
+    return '<span class="qmark fail">'+esc(v)+'</span>';
+  }
+  function insBadge(val){
+    if (!val) return '<span class="badge noins">Tanpa Asuransi</span>';
+    return '<span class="badge ins">'+esc(val)+'</span>';
+  }
+
+  function renderHighlightTable(){
+    var q = norm(document.getElementById('searchBoxHi').value).toLowerCase();
+    var areaF = document.getElementById('filterAreaHi').value;
+
+    var rows = RANGE_RECORDS.filter(function(r){
+      if (r.status !== 'Kurang Puas') return false;
+      if (areaF && r.area !== areaF) return false;
+      if (q){
+        var hay = (r.plate+' '+r.sa+' '+r.model).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    rows.sort(function(x,y){return y.day-x.day;});
+
+    var kurangTotal = RANGE_RECORDS.filter(function(r){return r.status==='Kurang Puas';}).length;
+    document.getElementById('kurangCountPill').textContent = rows.length + ' dari ' + kurangTotal + ' pelanggan kurang puas';
+
+    var html = rows.map(function(r){
+      var teknisi = (r.area === 'Produksi & Teknis') ? '<span class="note-muted">belum tercatat</span>' : '–';
+      return '<tr>'+
+        '<td>'+fmtDateShort(r.day)+'</td>'+
+        '<td class="plate">'+esc(r.plate)+'</td>'+
+        '<td>'+esc(r.model)+'</td>'+
+        '<td>'+esc(r.sa)+'</td>'+
+        '<td>'+(r.area?esc(r.area):'<span class="note-muted">–</span>')+'</td>'+
+        '<td>'+teknisi+'</td>'+
+        '<td>'+visitBadge(r.visitStatus)+'</td>'+
+        '<td class="verbatim">'+(r.negText?esc(r.negText):'<span class="note-muted">–</span>')+'</td>'+
+        '<td>'+q1Badge(r.q1Fir)+'</td>'+
+        '<td>'+qmarkBadge(r.q2Otd)+'</td>'+
+        '<td>'+qmarkBadge(r.q3ReasOtd)+'</td>'+
+        '<td>'+insBadge(r.asuransi)+'</td>'+
+      '</tr>';
+    }).join('');
+    document.getElementById('tableBodyHighlight').innerHTML = html || '<tr><td colspan="12" class="empty-note" style="padding:20px;">Tidak ada pelanggan kurang puas yang cocok pada rentang ini.</td></tr>';
+  }
+
+  function renderDetailTable(){
+    var q = norm(document.getElementById('searchBox').value).toLowerCase();
+    var areaF = document.getElementById('filterArea').value;
+    var statusF = document.getElementById('filterStatus').value;
+
+    var rows = RANGE_RECORDS.filter(function(r){
+      if (areaF && r.area !== areaF) return false;
+      if (statusF && r.status !== statusF) return false;
+      if (q){
+        var hay = (r.plate+' '+r.sa+' '+r.model).toLowerCase();
+        if (hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    rows.sort(function(x,y){ return (y.day-x.day) || (x.no-y.no); });
+
+    document.getElementById('tableCountPill').textContent = rows.length + ' dari ' + RANGE_RECORDS.length + ' PKB';
+
+    var html = rows.map(function(r){
+      var badgeCls = r.status==='Puas' ? 'puas' : (r.status==='Kurang Puas' ? 'kurang' : 'belum');
+      var note = r.negText || r.posText || '';
+      var teknisi = (r.area === 'Produksi & Teknis' && r.status === 'Kurang Puas') ? '<span class="note-muted">belum tercatat</span>' : '–';
+      return '<tr>'+
+        '<td>'+fmtDateShort(r.day)+'</td>'+
+        '<td>'+esc(fmtNo(r.no))+'</td>'+
+        '<td class="plate">'+esc(r.plate)+'</td>'+
+        '<td>'+esc(r.model)+'</td>'+
+        '<td>'+esc(r.sa)+'</td>'+
+        '<td>'+(r.area?esc(r.area):'<span class="note-muted">–</span>')+'</td>'+
+        '<td>'+teknisi+'</td>'+
+        '<td>'+visitBadge(r.visitStatus)+'</td>'+
+        '<td><span class="badge '+badgeCls+'">'+r.status+'</span></td>'+
+        '<td class="verbatim">'+(note?esc(note):'<span class="note-muted">–</span>')+'</td>'+
+        '<td>'+q1Badge(r.q1Fir)+'</td>'+
+        '<td>'+qmarkBadge(r.q2Otd)+'</td>'+
+        '<td>'+qmarkBadge(r.q3ReasOtd)+'</td>'+
+        '<td>'+insBadge(r.asuransi)+'</td>'+
+      '</tr>';
+    }).join('');
+    document.getElementById('tableBody').innerHTML = html || '<tr><td colspan="14" class="empty-note" style="padding:20px;">Tidak ada data yang cocok.</td></tr>';
+  }
+
+  function populateAreaFilter(){
+    var opts = '<option value="">Semua Bagian</option>' + AREAS.map(function(a){return '<option value="'+esc(a.key)+'">'+a.key+'</option>';}).join('');
+    document.getElementById('filterArea').innerHTML = opts;
+    document.getElementById('filterAreaHi').innerHTML = opts;
+  }
+
+  // ---------- fetch & orchestration ----------
+  var countdownTimer = null, refreshTimer = null, secondsLeft = REFRESH_MS/1000;
+
+  function setStatus(text, ok){
+    document.getElementById('statusText').textContent = text;
+    document.getElementById('liveDot').style.background = ok ? 'var(--good)' : 'var(--critical)';
+  }
+
+  var jsonpCounter = 0;
+
+  function buildJsonpUrl(day, callbackName){
+    // NOTE: the semicolon inside tqx must be percent-encoded (%3B) — Google's
+    // endpoint otherwise splits on the raw ";" as if it were a "&" and silently
+    // ignores responseHandler, falling back to google.visualization.Query.setResponse.
+    return 'https://docs.google.com/spreadsheets/d/'+SHEET_ID+'/gviz/tq?tqx=out:json%3BresponseHandler:'+callbackName+'&sheet='+day+'&_ts='+Date.now();
+  }
+
+  // Promise-based JSONP fetch for one day-tab — reused to fetch every day in the
+  // selected range in parallel (see loadRange below).
+  function fetchDayRecords(day){
+    return new Promise(function(resolve, reject){
+      jsonpCounter++;
+      var cbName = '__psfuCallback' + jsonpCounter;
+      var script = document.createElement('script');
+      var timeoutId;
+      var finished = false;
+
+      function cleanup(){
+        finished = true;
+        clearTimeout(timeoutId);
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+      }
+
+      function onSuccess(response){
+        if (finished) return;
+        cleanup();
+        if (!response || response.status === 'error'){
+          var msg = (response && response.errors && response.errors[0] && response.errors[0].detailed_message) || 'tab tanggal ini tidak ditemukan di sheet';
+          reject(new Error(msg));
+          return;
+        }
+        try{
+          var rows = tableToRows(response.table);
+          resolve(parseSheetRows(rows));
+        } catch(e){
+          reject(e);
+        }
+      }
+
+      window[cbName] = onSuccess;
+      script.onerror = function(){
+        if (finished) return;
+        cleanup();
+        reject(new Error('gagal memuat script dari Google Sheet'));
+      };
+      timeoutId = setTimeout(function(){
+        if (finished) return;
+        cleanup();
+        reject(new Error('timeout — tidak merespon dalam 15 detik'));
+      }, 15000);
+
+      script.src = buildJsonpUrl(day, cbName);
+      document.head.appendChild(script);
+    });
+  }
+
+  // Fetch one day-tab and tag every record it returns with which day it came
+  // from — needed once results from many days get merged into one list.
+  function fetchDayRecordsTagged(day){
+    return fetchDayRecords(day).then(function(records){
+      records.forEach(function(r){ r.day = day; });
+      return records;
+    }).catch(function(){ return []; }); // a missing/unreachable tab just contributes nothing to the range
+  }
+
+  function loadRange(){
+    var errBanner = document.getElementById('errorBanner');
+    errBanner.style.display = 'none';
+
+    var fromSelect = document.getElementById('fromDaySelect');
+    var toSelect = document.getElementById('toDaySelect');
+    var fromDay = parseInt(fromSelect.value,10);
+    var toDay = parseInt(toSelect.value,10);
+    if (fromDay > toDay){ toDay = fromDay; toSelect.value = toDay; } // guard against an invalid range
+
+    setStatus('memuat data ' + rangeLabel(fromDay, toDay) + '…', true);
+
+    var jobs = [];
+    for (var d=fromDay; d<=toDay; d++){
+      jobs.push(fetchDayRecordsTagged(d));
+    }
+    Promise.all(jobs).then(function(results){
+      var all = [];
+      for (var i=0;i<results.length;i++){ all = all.concat(results[i]); }
+      RANGE_RECORDS = all;
+      document.getElementById('loadingNote').style.display = 'none';
+      document.getElementById('content').style.display = 'block';
+      renderKpis(all, fromDay, toDay);
+      renderRateDonut(all, fromDay, toDay);
+      renderAreaBreakdown(all);
+      renderInsuranceBreakdown(all);
+      renderSubCatBreakdown(all);
+      renderAreaCards(all);
+      renderReturnJobSection(all);
+      renderHighlightTable();
+      renderDetailTable();
+      var now = new Date();
+      setStatus('data ' + rangeLabel(fromDay, toDay) + ' · diperbarui ' + now.toLocaleTimeString('id-ID') + ' WIB (Jakarta)', true);
+      resetCountdown();
+    }).catch(function(e){
+      setStatus('gagal memuat data', false);
+      errBanner.style.display = 'block';
+      errBanner.textContent = 'Gagal memuat data dari Google Sheet (' + e.message + '). Cek koneksi internet, dan pastikan sheet tetap dibagikan sebagai "Anyone with the link". Mencoba lagi otomatis...';
+    });
+  }
+
+  function resetCountdown(){
+    secondsLeft = REFRESH_MS/1000;
+  }
+
+  function tick(){
+    secondsLeft--;
+    if (secondsLeft <= 0){
+      loadRange();
+    }
+  }
+
+  function switchTab(targetId){
+    var btns = document.getElementsByClassName('tab-btn');
+    for (var i=0;i<btns.length;i++){
+      if (btns[i].getAttribute('data-tab') === targetId) btns[i].classList.add('active');
+      else btns[i].classList.remove('active');
+    }
+    var panels = document.getElementsByClassName('tab-panel');
+    for (var j=0;j<panels.length;j++){
+      if (panels[j].id === targetId) panels[j].classList.add('active');
+      else panels[j].classList.remove('active');
+    }
+  }
+
+  function init(){
+    document.getElementById('refreshSecLabel').textContent = Math.round(REFRESH_MS/1000);
+    populateAreaFilter();
+
+    var monthSelect = document.getElementById('monthSelect');
+    var sortedMonths = MONTH_SHEETS.slice().sort(function(a,b){ return a.month - b.month; });
+    monthSelect.innerHTML = sortedMonths.map(function(cfg){
+      return '<option value="'+cfg.month+'">'+monthName(cfg.month)+'</option>';
+    }).join('');
+
+    // Default to today's real-world month if a sheet exists for it; otherwise
+    // fall back to the most recent month that has one configured.
+    var t = jakartaTodayParts();
+    var initialCfg = getMonthConfig(t.m) || sortedMonths[sortedMonths.length-1];
+    var initialMonth = initialCfg.month;
+    monthSelect.value = initialMonth;
+    applyMonth(initialMonth, {resetRange:true});
+
+    var fromSelect = document.getElementById('fromDaySelect');
+    var toSelect = document.getElementById('toDaySelect');
+
+    monthSelect.addEventListener('change', function(){
+      applyMonth(parseInt(monthSelect.value,10), {resetRange:true});
+      resetCountdown();
+      loadRange();
+    });
+
+    fromSelect.addEventListener('change', function(){
+      if (parseInt(fromSelect.value,10) > parseInt(toSelect.value,10)) toSelect.value = fromSelect.value;
+      resetCountdown();
+      loadRange();
+    });
+    toSelect.addEventListener('change', function(){
+      if (parseInt(toSelect.value,10) < parseInt(fromSelect.value,10)) fromSelect.value = toSelect.value;
+      resetCountdown();
+      loadRange();
+    });
+    document.getElementById('btnDefaultRange').addEventListener('click', function(){
+      fromSelect.value = defaultFromDay();
+      toSelect.value = defaultToDay();
+      resetCountdown();
+      loadRange();
+    });
+    document.getElementById('btnRefresh').addEventListener('click', function(){
+      resetCountdown();
+      loadRange();
+    });
+    document.getElementById('tabBtnHighlight').addEventListener('click', function(){ switchTab('panelHighlight'); });
+    document.getElementById('tabBtnDetail').addEventListener('click', function(){ switchTab('panelDetail'); });
+
+    document.getElementById('searchBoxHi').addEventListener('input', renderHighlightTable);
+    document.getElementById('filterAreaHi').addEventListener('change', renderHighlightTable);
+    document.getElementById('searchBox').addEventListener('input', renderDetailTable);
+    document.getElementById('filterArea').addEventListener('change', renderDetailTable);
+    document.getElementById('filterStatus').addEventListener('change', renderDetailTable);
+
+    loadRange();
+    if (refreshTimer) clearInterval(refreshTimer);
+    refreshTimer = setInterval(tick, 1000);
+  }
+
+  document.addEventListener('DOMContentLoaded', init);
+})();
+</script>
+</body>
+</html>
