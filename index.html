@@ -12,7 +12,7 @@
        validated 8-hue dark-mode order (OKLCH L 0.48–0.67, CVD ΔE ≥ 8 adjacent,
        normal-vision ΔE ≥ 15, all ≥ 3:1 on this exact surface) — re-run
        scripts/validate_palette.js against --surface #1b1e25 before changing
-       any of the --slot-* / --subslot-* values below. */
+       any of the --slot-* / --katcat-* values below. */
     --page-plane:     #12141a;
     --surface-1:      #1b1e25;
     --surface-2:      #232730;
@@ -45,12 +45,7 @@
     --slot-7: #9085e9; /* Administrasi */
     --slot-8: #e66767; /* Lainnya */
 
-    --subslot-1: #3987e5; /* Noise (Bunyi) */
-    --subslot-2: #d55181; /* Mekanikal */
-    --subslot-3: #c98500; /* Elektrikal */
-    --subslot-4: #9085e9; /* SOP */
-
-    /* "Kategori Komplain" (separate, additional breakdown) — own validated set */
+    /* "Kategori Komplain" donut — own validated categorical set */
     --katcat-1: #3987e5; /* Noise */
     --katcat-2: #d95926; /* Mechanical */
     --katcat-3: #199e70; /* SOP */
@@ -343,18 +338,8 @@
         </div>
       </div>
 
-      <h2 class="section-title">Breakdown Kategori Komplain <span class="count-pill" id="subCatPill"></span></h2>
-      <div class="subcat-card-sub">Noise (Bunyi), Mekanikal &amp; Elektrikal dari bagian Produksi &amp; Teknis; SOP dari bagian Petugas &amp; SA, ditambah komplain Produksi &amp; Teknis yang menyebut proses/pengerjaan (dan sebagian Lainnya). Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
-      <div class="subcat-card">
-        <div class="subcat-card-body">
-          <div class="subcat-donut-wrap" id="subCatDonutWrap"></div>
-          <div class="subcat-legend" id="subCatLegend"></div>
-        </div>
-        <div class="subcat-detail" id="subCatDetail"></div>
-      </div>
-
       <h2 class="section-title">Kategori Komplain <span class="count-pill" id="komplainPill"></span></h2>
-      <div class="subcat-card-sub">Kategori resmi bengkel: Mechanical, Electrical, Noise, Administratif, Layanan, SOP. Tidak ada kolom kategori terpisah di sheet, jadi tiap komplain dicocokkan otomatis ke salah satu kategori dari kata kunci pada catatan pelanggan — perkiraan terbaik, koreksi manual di sheet kalau perlu. Bagian ini terpisah dari "Breakdown Kategori Komplain" di atas (dua sudut pandang berbeda atas komplain yang sama). Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
+      <div class="subcat-card-sub">Kategori resmi bengkel: Mechanical, Electrical, Noise, Administratif, Layanan, SOP. Tidak ada kolom kategori terpisah di sheet, jadi tiap komplain dicocokkan otomatis ke salah satu kategori dari kata kunci pada catatan pelanggan — perkiraan terbaik, koreksi manual di sheet kalau perlu. Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
       <div class="subcat-card">
         <div class="subcat-card-body">
           <div class="subcat-donut-wrap" id="komplainDonutWrap"></div>
@@ -512,56 +497,16 @@
     { key:"Lainnya",             slot:"--slot-8", kw:[] }
   ];
 
-  // Second, finer-grained classification layer for the "Breakdown Kategori Komplain"
-  // chart — cuts across the AREAS above instead of replacing them. Noise/Mekanikal/
-  // Elektrikal only apply within "Produksi & Teknis" complaints (their combined
-  // keyword lists are exactly the Produksi & Teknis keyword list above, split three
-  // ways, so every Produksi & Teknis complaint is guaranteed to match one of them).
-  // SOP covers all of "Petugas & SA" plus any "Lainnya" complaint that also reads as
-  // a service/SOP issue (checked with a slightly wider keyword list, since "Lainnya"
-  // by definition already missed every AREAS keyword).
-  var SUBCATS = [
-    { key:"Noise (Bunyi)", slot:"--subslot-1" },
-    { key:"Mekanikal",     slot:"--subslot-2" },
-    { key:"Elektrikal",    slot:"--subslot-3" },
-    { key:"SOP",           slot:"--subslot-4" }
-  ];
-  var SUBCAT_KW = {
-    noise:        ["bunyi"],
-    // "pengerjaan" sengaja dipisah dari mekanikal ke SOP (atas permintaan user: komplain yang
-    // menyebut proses/lama pengerjaan dianggap soal SOP/prosedur, bukan kerusakan mekanikal itu sendiri).
-    sopFromTeknis:["pengerjaan"],
-    mekanikal:    ["part","oli","rem","ban ","mesin","kopling","radiator","shock","mekanik","diagnosa","pasang","ganti","bocor","rembes","seatbelt","label oli","wiper","cover","kunci","steer","perbaikan","hasil"],
-    elektrikal:   ["aki","kelistrikan","kaca","kamera","lampu","kabel","sensor","speaker"],
-    sopExtra:     ["komunikasi","petugas","respon","informasi","kurang nyaman","tidak ramah","pelayanan","dijelaskan","follow up","sop","prosedur","koordinasi","proses","penjelasan","sikap"]
-  };
   function matchAny(lower, list){
     for (var i=0;i<list.length;i++){ if (lower.indexOf(list[i]) !== -1) return true; }
     return false;
   }
-  function classifySubCategory(rec){
-    if (rec.status !== 'Kurang Puas' || !rec.negText) return '';
-    var lower = rec.negText.toLowerCase();
-    if (rec.area === 'Produksi & Teknis'){
-      if (matchAny(lower, SUBCAT_KW.sopFromTeknis)) return 'SOP';
-      if (matchAny(lower, SUBCAT_KW.noise)) return 'Noise (Bunyi)';
-      if (matchAny(lower, SUBCAT_KW.elektrikal)) return 'Elektrikal';
-      if (matchAny(lower, SUBCAT_KW.mekanikal)) return 'Mekanikal';
-      return 'Mekanikal'; // safety net only — Produksi & Teknis keywords are a subset of the lists above, so this normally never triggers
-    }
-    if (rec.area === 'Petugas & SA') return 'SOP';
-    if (rec.area === 'Lainnya' && matchAny(lower, SUBCAT_KW.sopExtra)) return 'SOP';
-    return '';
-  }
 
-  // "Kategori Komplain" — a SEPARATE, ADDITIONAL breakdown on top of the one
-  // above, using the workshop's own official complaint taxonomy (given
+  // "Kategori Komplain" uses the workshop's own official complaint taxonomy (given
   // directly by the user, not derived from the sheet): Mechanical, Electrical,
-  // Noise, Administratif, Layanan, SOP. There's no dedicated column for it in
-  // the sheet either, so every "Kurang Puas" complaint is matched by keyword
-  // against its "Negative Experience" text, independently of the Bagian/SUBCATS
-  // classifications above — the three breakdowns are different lenses on the
-  // same complaints, not derived from one another.
+  // Noise, Administratif, Layanan, SOP. There's no dedicated column for it in the
+  // sheet, so every "Kurang Puas" complaint is matched by keyword against its
+  // "Negative Experience" text.
   var KOMPLAIN_CATS = [
     { key:"Noise",         slot:"--katcat-1" },
     { key:"Mechanical",    slot:"--katcat-2" },
@@ -947,7 +892,7 @@
   // Sheet-specific: the "Asuransi" (INS.) column has no fixed set of values —
   // it's whatever insurer name/code the SA types in, or blank when the job
   // isn't an insurance claim. Colors are assigned dynamically from a small
-  // rotating palette rather than a fixed CSS var per key (unlike AREAS/SUBCATS,
+  // rotating palette rather than a fixed CSS var per key (unlike AREAS/KOMPLAIN_CATS,
   // whose categories are known ahead of time).
   var INSURANCE_PALETTE = ['#2a78d6','#d6591f','#12946a','#b9790a','#c05a86','#2f8f2f','#4a3aa7','#c93f3f','#0a9396','#8a5b2e'];
 
@@ -986,142 +931,7 @@
     }).join('');
   }
 
-  // ---------- Breakdown Kategori Komplain (clickable donut: Noise/Mekanikal/Elektrikal/SOP) ----------
-  var SUBCAT_DATA = [];
-  var selectedSubcat = null;
-
-  function renderSubCatBreakdown(records){
-    var kurangAll = records.filter(function(r){return r.status==='Kurang Puas';});
-    kurangAll.forEach(function(r){ r.subcat = classifySubCategory(r); });
-    var matched = kurangAll.filter(function(r){return r.subcat;});
-    var totalKurang = kurangAll.length;
-    var totalMatched = matched.length;
-
-    document.getElementById('subCatPill').textContent = totalKurang
-      ? totalMatched + ' dari ' + totalKurang + ' komplain tercakup (' + Math.round((totalMatched/totalKurang)*100) + '%)'
-      : 'tidak ada komplain pada rentang ini';
-
-    var counts = SUBCATS.map(function(s){
-      var recs = matched.filter(function(r){return r.subcat===s.key;});
-      return { key:s.key, slot:s.slot, count:recs.length, records:recs };
-    });
-    SUBCAT_DATA = counts;
-
-    var wrap = document.getElementById('subCatDonutWrap');
-    var legendEl = document.getElementById('subCatLegend');
-
-    if (!totalMatched){
-      wrap.innerHTML = '<div class="donut" style="background:var(--gridline); width:150px; height:150px;"></div>';
-      legendEl.innerHTML = '<div class="donut-empty">Tidak ada komplain yang cocok kategori Noise/Mekanikal/Elektrikal/SOP pada rentang ini.</div>';
-      selectedSubcat = null;
-      renderSubCatDetail(null);
-      return;
-    }
-
-    var r = 42, circ = 2*Math.PI*r, cum = 0, gap = 1.6;
-    var arcParts = [], labelParts = [];
-    counts.filter(function(c){return c.count>0;}).forEach(function(c){
-      var frac = c.count/totalMatched;
-      var len = frac*circ;
-      var offset = -cum;
-      var startDeg = (cum/circ)*360;
-      var midDeg = startDeg + (frac*360)/2;
-      cum += len;
-      var dashLen = Math.max(len-gap, 0);
-      arcParts.push('<circle class="subcat-arc" data-key="'+esc(c.key)+'" cx="50" cy="50" r="'+r+'" fill="none" '+
-        'stroke="var('+c.slot+')" stroke-width="16" stroke-dasharray="'+dashLen.toFixed(2)+' '+(circ-dashLen).toFixed(2)+'" '+
-        'stroke-dashoffset="'+offset.toFixed(2)+'"></circle>');
-
-      // Data label for this slice, placed on the ring itself (clock-angle math done directly in
-      // absolute SVG coordinates, since the arcs live inside a rotate(-90) group but this label
-      // group does not — 0° here means 12 o'clock, increasing clockwise, matching the arcs above).
-      var pct = Math.round((c.count/totalMatched)*100);
-      var rad = (midDeg*Math.PI)/180;
-      var lx = 50 + r*Math.sin(rad);
-      var ly = 50 - r*Math.cos(rad);
-      var showCount = pct >= 12; // very thin slices only get room for the percentage
-      labelParts.push(
-        '<text x="'+lx.toFixed(2)+'" y="'+ly.toFixed(2)+'" text-anchor="middle" dominant-baseline="middle" class="subcat-arc-label" data-key="'+esc(c.key)+'">'+
-          (showCount ? '<tspan x="'+lx.toFixed(2)+'" dy="-2.3" class="sal-num">'+c.count+'</tspan>' : '') +
-          '<tspan x="'+lx.toFixed(2)+'" dy="'+(showCount?'6.1':'1.2')+'" class="sal-pct">'+pct+'%</tspan>'+
-        '</text>'
-      );
-    });
-
-    wrap.innerHTML =
-      '<svg viewBox="0 0 100 100" width="150" height="150">'+
-        '<g transform="rotate(-90 50 50)">'+arcParts.join('')+'</g>'+
-        labelParts.join('')+
-      '</svg>'+
-      '<div class="subcat-center-label"><div class="subcat-center-value">'+totalMatched+'</div><div class="subcat-center-label-text">komplain</div></div>';
-
-    legendEl.innerHTML = counts.map(function(c){
-      var pct = Math.round((c.count/totalMatched)*100);
-      return '<div class="subcat-legend-item" data-key="'+esc(c.key)+'"><span class="subcat-legend-swatch" style="background:var('+c.slot+')"></span><b>'+c.key+'</b><span class="n">'+c.count+' ('+pct+'%)</span></div>';
-    }).join('');
-
-    var clickHandler = function(){
-      var key = this.getAttribute('data-key');
-      selectSubcat(key === selectedSubcat ? null : key);
-    };
-    var arcEls = wrap.querySelectorAll('.subcat-arc');
-    for (var i=0;i<arcEls.length;i++){ arcEls[i].addEventListener('click', clickHandler); }
-    var legendEls = legendEl.querySelectorAll('.subcat-legend-item');
-    for (var j=0;j<legendEls.length;j++){ legendEls[j].addEventListener('click', clickHandler); }
-
-    // keep the selection across refreshes if that category still has data, otherwise clear it
-    if (selectedSubcat && counts.filter(function(c){return c.key===selectedSubcat && c.count>0;}).length){
-      selectSubcat(selectedSubcat);
-    } else {
-      selectedSubcat = null;
-      renderSubCatDetail(null);
-    }
-  }
-
-  function selectSubcat(key){
-    selectedSubcat = key;
-    var legendEls = document.getElementById('subCatLegend').querySelectorAll('.subcat-legend-item');
-    for (var i=0;i<legendEls.length;i++){
-      legendEls[i].classList.toggle('active', legendEls[i].getAttribute('data-key')===key);
-    }
-    var arcEls = document.getElementById('subCatDonutWrap').querySelectorAll('.subcat-arc');
-    for (var j=0;j<arcEls.length;j++){
-      arcEls[j].classList.toggle('dimmed', !!key && arcEls[j].getAttribute('data-key')!==key);
-    }
-    var labelEls = document.getElementById('subCatDonutWrap').querySelectorAll('.subcat-arc-label');
-    for (var k=0;k<labelEls.length;k++){
-      labelEls[k].classList.toggle('dimmed', !!key && labelEls[k].getAttribute('data-key')!==key);
-    }
-    renderSubCatDetail(key);
-  }
-
-  function renderSubCatDetail(key){
-    var el = document.getElementById('subCatDetail');
-    if (!key){
-      el.innerHTML = '<div class="subcat-detail-hint">Klik salah satu kategori pada chart atau daftar di atas untuk melihat detail keluhannya.</div>';
-      return;
-    }
-    var entry = SUBCAT_DATA.filter(function(c){return c.key===key;})[0];
-    if (!entry || !entry.count){
-      el.innerHTML = '<div class="subcat-detail-hint">Tidak ada data untuk kategori ini pada rentang ini.</div>';
-      return;
-    }
-    var sorted = entry.records.slice().sort(function(x,y){return y.day-x.day;});
-    var boxes = sorted.map(function(rec){
-      return '<div class="highlight-box neg"><span class="tag">'+fmtDateShort(rec.day)+' · '+esc(rec.plate)+' — '+esc(rec.sa)+'</span>'+esc(rec.negText)+'</div>';
-    }).join('');
-    el.innerHTML =
-      '<div class="subcat-detail-header">'+
-        '<div class="subcat-detail-title">Keluhan Kategori: <b>'+esc(key)+'</b><span class="count-pill">'+entry.count+' keluhan</span></div>'+
-        '<button class="subcat-detail-close" id="btnCloseSubcat" type="button">Tutup ✕</button>'+
-      '</div>'+
-      '<div class="subcat-detail-list">'+boxes+'</div>';
-    document.getElementById('btnCloseSubcat').addEventListener('click', function(){ selectSubcat(null); });
-  }
-
   // ---------- Kategori Komplain (clickable donut: Noise/Mechanical/SOP/Administratif/Electrical/Layanan) ----------
-  // Separate, additional breakdown alongside "Breakdown Kategori Komplain" above — same
-  // underlying complaints, a different lens (the workshop's own official taxonomy).
   var KOMPLAIN_DATA = [];
   var selectedKomplainCat = null;
 
@@ -1471,7 +1281,6 @@
       renderRateDonut(all, fromDay, toDay);
       renderAreaBreakdown(all);
       renderInsuranceBreakdown(all);
-      renderSubCatBreakdown(all);
       renderKomplainBreakdown(all);
       renderAreaCards(all);
       renderReturnJobSection(all);
