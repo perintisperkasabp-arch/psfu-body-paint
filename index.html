@@ -52,6 +52,7 @@
     --katcat-4: #9085e9; /* Administratif */
     --katcat-5: #c98500; /* Electrical */
     --katcat-6: #d55181; /* Kerapihan */
+    --katcat-7: #008300; /* Asuransi */
   }
   *{box-sizing:border-box;}
   body{
@@ -339,7 +340,7 @@
       </div>
 
       <h2 class="section-title">Kategori Komplain <span class="count-pill" id="komplainPill"></span></h2>
-      <div class="subcat-card-sub">Kategori resmi bengkel: Mechanical, Electrical, Noise, Administratif, Kerapihan, SOP (mengikuti daftar "Kategori Komplain" pada tab Master di spreadsheet). Tidak ada kolom kategori terpisah pada tab harian, jadi tiap komplain dicocokkan otomatis ke salah satu kategori dari kata kunci pada catatan pelanggan — perkiraan terbaik, koreksi manual di sheet kalau perlu. Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
+      <div class="subcat-card-sub">Kategori resmi bengkel: Mechanical, Electrical, Noise, Administratif, Kerapihan, SOP, Asuransi (mengikuti daftar "Kategori Komplain" pada tab Master di spreadsheet). Diambil langsung dari kolom "Kategori Komplain" yang SA isi di tab harian; kalau kolomnya masih kosong, dicocokkan sementara lewat kata kunci pada catatan pelanggan sebagai perkiraan. Klik salah satu kategori pada chart atau daftar di bawah untuk melihat detail keluhannya.</div>
       <div class="subcat-card">
         <div class="subcat-card-body">
           <div class="subcat-donut-wrap" id="komplainDonutWrap"></div>
@@ -366,7 +367,7 @@
             <tr>
               <th>Tanggal</th><th>Plat Nopol</th><th>Model</th><th>SA</th><th>Bagian</th>
               <th>Teknisi / Foreman</th><th>Visit Status</th><th>Catatan Pelanggan</th>
-              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th>
+              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th><th>NPS</th>
             </tr>
           </thead>
           <tbody id="tableBodyHighlight"></tbody>
@@ -392,7 +393,7 @@
             <tr>
               <th>Tanggal</th><th>No</th><th>Plat Nopol</th><th>Model</th><th>SA</th><th>Bagian</th>
               <th>Teknisi / Foreman</th><th>Visit Status</th><th>Status</th><th>Catatan Pelanggan</th>
-              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th>
+              <th>Q1 FIR</th><th>Q2 OTD</th><th>Q3 Reas. OTD</th><th>Asuransi</th><th>NPS</th>
             </tr>
           </thead>
           <tbody id="tableBody"></tbody>
@@ -504,16 +505,19 @@
 
   // "Kategori Komplain" mengikuti daftar referensi resmi pada tab "Master" di
   // spreadsheet (kolom "Kategori Komplain"): Mechanical, Electrical, Noise,
-  // Administratif, Kerapihan, SOP. Tab harian belum punya kolom kategori
-  // tersendiri, jadi tiap komplain "Kurang Puas" dicocokkan otomatis lewat
-  // kata kunci pada teks "Negative Experience".
+  // Kerapihan, Administratif, SOP, Asuransi. Sejak update terbaru, tab harian
+  // punya kolom "Kategori Komplain" sendiri (SA pilih lewat dropdown) — kalau
+  // sudah diisi, nilai itu yang dipakai langsung; kalau masih kosong (belum
+  // sempat diisi SA), fallback ke tebakan kata kunci dari teks "Negative
+  // Experience" seperti sebelumnya.
   var KOMPLAIN_CATS = [
     { key:"Noise",         slot:"--katcat-1" },
     { key:"Mechanical",    slot:"--katcat-2" },
     { key:"SOP",           slot:"--katcat-3" },
     { key:"Administratif", slot:"--katcat-4" },
     { key:"Electrical",    slot:"--katcat-5" },
-    { key:"Kerapihan",     slot:"--katcat-6" }
+    { key:"Kerapihan",     slot:"--katcat-6" },
+    { key:"Asuransi",      slot:"--katcat-7" }
   ];
   var KOMPLAIN_KW = {
     noise:         ["bunyi"],
@@ -521,14 +525,28 @@
     administratif: ["transfer","bayar","invoice","kwitansi","admin","kelebihan","refund","dana","reminder service belum"],
     sop:           ["sop","prosedur","proses","pengerjaan","koordinasi","penjelasan","dijelaskan","lead time","waktu tunggu","antri","terlambat","telat","menunggu"],
     mechanical:    ["part","oli","rem","ban ","mesin","kopling","radiator","shock","mekanik","diagnosa","pasang","ganti","bocor","rembes","seatbelt","label oli","wiper","cover","kunci","steer","perbaikan","hasil","dempul","cat ","baret","poles"],
-    kerapihan:     ["komunikasi","petugas","respon","informasi","kurang nyaman","tidak ramah","pelayanan","follow up","ramah","sikap","fasilitas","nyaman","suasana","cozy","cuci","kotor","debu","noda"]
+    kerapihan:     ["komunikasi","petugas","respon","informasi","kurang nyaman","tidak ramah","pelayanan","follow up","ramah","sikap","fasilitas","nyaman","suasana","cozy","cuci","kotor","debu","noda"],
+    asuransi:      ["asuransi","klaim","polis","insurance"]
   };
+  // Normalisasi nilai kolom "Kategori Komplain" di sheet (bisa beda kapitalisasi/
+  // spasi dari SA) ke salah satu key resmi di KOMPLAIN_CATS.
+  function normalizeKomplainKategori(raw){
+    var lower = norm(raw).toLowerCase();
+    if (!lower) return '';
+    for (var i=0;i<KOMPLAIN_CATS.length;i++){
+      if (KOMPLAIN_CATS[i].key.toLowerCase() === lower) return KOMPLAIN_CATS[i].key;
+    }
+    return '';
+  }
   function classifyKomplainKategori(rec){
     if (rec.status !== 'Kurang Puas' || !rec.negText) return '';
+    var fromSheet = normalizeKomplainKategori(rec.kategoriKomplainRaw);
+    if (fromSheet) return fromSheet;
     var lower = rec.negText.toLowerCase();
     // Most specific/unambiguous vocabularies first, broadest ("Kerapihan") last.
     if (matchAny(lower, KOMPLAIN_KW.noise)) return 'Noise';
     if (matchAny(lower, KOMPLAIN_KW.electrical)) return 'Electrical';
+    if (matchAny(lower, KOMPLAIN_KW.asuransi)) return 'Asuransi';
     if (matchAny(lower, KOMPLAIN_KW.administratif)) return 'Administratif';
     if (matchAny(lower, KOMPLAIN_KW.sop)) return 'SOP';
     if (matchAny(lower, KOMPLAIN_KW.mechanical)) return 'Mechanical';
@@ -609,9 +627,12 @@
   // value with "Datang" (customer already brought the car back) or "Tidak
   // Datang" (not yet / didn't come back), instead of a separate column.
   function returnJobStatus(q1Val){
+    // Dropdown Q1 (FIR) sempat pakai "Datang"/"Tidak Datang", lalu diganti jadi
+    // "Come"/"Not Come" di update terbaru sheet — dukung dua-duanya biar data
+    // bulan lama & baru tetap kebaca benar.
     var v = norm(q1Val).toLowerCase();
-    if (v === 'datang') return 'Datang';
-    if (v === 'tidak datang') return 'Tidak Datang';
+    if (v === 'datang' || v === 'come') return 'Datang';
+    if (v === 'tidak datang' || v === 'not come') return 'Tidak Datang';
     return '';
   }
 
@@ -660,7 +681,13 @@
       var q3ReasOtd = norm(row[13]);
       var posText = norm(row[15]);
       var negText = norm(row[17]);
-      var asuransi = norm(row[19]);
+      // Kolom "Kategori Komplain" (col T / index 19) diisi SA sendiri lewat dropdown
+      // di sheet sejak update terbaru — pakai nilai ini kalau terisi, baru fallback
+      // ke tebakan kata kunci (classifyKomplainKategori) kalau kosong/belum diisi.
+      var kategoriKomplainRaw = norm(row[19]);
+      var asuransi = norm(row[20]); // bergeser dari kolom 19 -> 20 sejak kolom "Kategori Komplain" disisipkan
+      var npsRaw = norm(row[21]);
+      var nps = /^\d+(\.\d+)?$/.test(npsRaw) ? Math.round(parseFloat(npsRaw)) : null;
       var rec = {
         no: noVal,
         sa: saVal,
@@ -673,7 +700,9 @@
         q3ReasOtd: q3ReasOtd,
         posText: posText,
         negText: negText,
-        asuransi: asuransi
+        kategoriKomplainRaw: kategoriKomplainRaw,
+        asuransi: asuransi,
+        nps: nps
       };
       rec.returnJob = returnJobStatus(q1Fir);
       rec.status = statusCall === 'Contacted' ? (negText ? 'Kurang Puas' : 'Puas') : 'Belum Direspon';
@@ -713,9 +742,13 @@
     var rjDatang = nonFir.filter(function(r){return r.returnJob==='Datang';}).length;
     var rjTidak = nonFir.filter(function(r){return r.returnJob==='Tidak Datang';}).length;
 
+    var npsVals = records.map(function(r){return r.nps;}).filter(function(n){return n!==null;});
+    var avgNps = npsVals.length ? (npsVals.reduce(function(a,b){return a+b;},0)/npsVals.length) : null;
+
     var tiles = [
       {label:"Total PKB", value: total, sub: total + " kendaraan terdaftar " + rangeLabel(fromDay, toDay)},
       {label:"Sudah Diproses PSFU", value: callRate + "%", sub: contacted + " dari " + total + " PKB (termasuk yang tidak tersambung)"},
+      {label:"Rata-rata NPS", value: avgNps!==null ? avgNps.toFixed(1) : "–", sub: npsVals.length + " responden memberi skor"},
       {label:"Apresiasi (Puas)", value: puas, sub: respondedTotal ? Math.round((puas/respondedTotal)*100)+"% dari yang sudah selesai ditelepon" : "belum ada respon", cls:"good"},
       {label:"Komplain (Kurang Puas)", value: kurang, sub: respondedTotal ? Math.round((kurang/respondedTotal)*100)+"% dari yang sudah selesai ditelepon" : "belum ada respon", cls: kurang>0 ? "bad" : ""},
       {label:"Q1 · FIR Rate", value: fir.rate!==null ? fir.rate+"%" : "–", sub: fir.n + " PKB dinilai"},
@@ -957,7 +990,7 @@
 
     if (!totalMatched){
       wrap.innerHTML = '<div class="donut" style="background:var(--gridline); width:150px; height:150px;"></div>';
-      legendEl.innerHTML = '<div class="donut-empty">Tidak ada komplain yang cocok kategori Mechanical/Electrical/Noise/Administratif/Kerapihan/SOP pada rentang ini.</div>';
+      legendEl.innerHTML = '<div class="donut-empty">Tidak ada komplain yang cocok kategori Mechanical/Electrical/Noise/Administratif/Kerapihan/SOP/Asuransi pada rentang ini.</div>';
       selectedKomplainCat = null;
       renderKomplainDetail(null);
       return;
@@ -1084,8 +1117,8 @@
     var v = norm(val);
     var vLower = v.toLowerCase();
     if (vLower === 'o') return '<span class="qmark pass">'+esc(v)+'</span>';
-    if (vLower === 'datang') return '<span class="badge rj-datang">Datang</span>';
-    if (vLower === 'tidak datang') return '<span class="badge rj-tidak">Tidak Datang</span>';
+    if (vLower === 'datang' || vLower === 'come') return '<span class="badge rj-datang">Datang</span>';
+    if (vLower === 'tidak datang' || vLower === 'not come') return '<span class="badge rj-tidak">Tidak Datang</span>';
     return '<span class="qmark fail">'+esc(v)+'</span>';
   }
   function insBadge(val){
@@ -1126,9 +1159,10 @@
         '<td>'+qmarkBadge(r.q2Otd)+'</td>'+
         '<td>'+qmarkBadge(r.q3ReasOtd)+'</td>'+
         '<td>'+insBadge(r.asuransi)+'</td>'+
+        '<td class="nps">'+(r.nps!==null?r.nps:'<span class="note-muted">–</span>')+'</td>'+
       '</tr>';
     }).join('');
-    document.getElementById('tableBodyHighlight').innerHTML = html || '<tr><td colspan="12" class="empty-note" style="padding:20px;">Tidak ada pelanggan kurang puas yang cocok pada rentang ini.</td></tr>';
+    document.getElementById('tableBodyHighlight').innerHTML = html || '<tr><td colspan="13" class="empty-note" style="padding:20px;">Tidak ada pelanggan kurang puas yang cocok pada rentang ini.</td></tr>';
   }
 
   function renderDetailTable(){
@@ -1168,9 +1202,10 @@
         '<td>'+qmarkBadge(r.q2Otd)+'</td>'+
         '<td>'+qmarkBadge(r.q3ReasOtd)+'</td>'+
         '<td>'+insBadge(r.asuransi)+'</td>'+
+        '<td class="nps">'+(r.nps!==null?r.nps:'<span class="note-muted">–</span>')+'</td>'+
       '</tr>';
     }).join('');
-    document.getElementById('tableBody').innerHTML = html || '<tr><td colspan="14" class="empty-note" style="padding:20px;">Tidak ada data yang cocok.</td></tr>';
+    document.getElementById('tableBody').innerHTML = html || '<tr><td colspan="15" class="empty-note" style="padding:20px;">Tidak ada data yang cocok.</td></tr>';
   }
 
   function populateAreaFilter(){
