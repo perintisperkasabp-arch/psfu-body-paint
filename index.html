@@ -410,7 +410,7 @@
     <div>Klasifikasi "Bagian" untuk komplain negatif dibuat otomatis dari kata kunci pada catatan pelanggan (sheet sumber tidak selalu mengisi kategori komplain), jadi hasilnya adalah perkiraan terbaik — mohon dikoreksi manual di sheet bila diperlukan. Sheet Body &amp; Paint ini tidak memiliki kolom kategori terpisah untuk feedback positif (kolom "Positive Experience" berisi teks bebas), jadi feedback positif diklasifikasi ke bagian dengan kata kunci yang sama, supaya persentase puas per bagian tetap bisa dihitung.</div>
     <div>Kolom <b>Q1 (FIR)</b>, <b>Q2 (OTD)</b> dan <b>Q3 (Reas. OTD)</b> diambil apa adanya dari sheet sumber (tanda "O" dianggap tercapai/lulus, kosong dianggap belum/tidak berlaku); rate pada kartu ringkasan dihitung dari proporsi "O" terhadap PKB yang sudah diisi tanda pada rentang tanggal terpilih. Kolom <b>Asuransi (INS.)</b> ditampilkan sebagai teks/badge — nilai apa pun yang terisi dianggap PKB tersebut menggunakan asuransi, dan kartu "Distribusi Asuransi" merangkum sebarannya (termasuk yang tanpa asuransi) untuk seluruh PKB pada rentang tanggal, bukan hanya yang kurang puas.</div>
     <div>Kolom <b>Q1 (FIR)</b> juga dipakai untuk melacak <b>Return Job</b>: kalau unit tidak lulus FIR saat serah terima dan harus balik lagi ke bengkel, sel kolom ini diisi teks "Datang" (pelanggan sudah bawa kembali unitnya) atau "Tidak Datang" (belum/tidak kembali) menggantikan tanda "O". Halaman ini menghitung PKB dengan nilai Q1 selain "O"/kosong sebagai "Non-FIR", dan menampilkan sebaran Datang/Tidak Datang beserta daftar unitnya di bagian "Return Job (Non-FIR)" pada tab Highlight. Data September ini belum ada kasus Non-FIR, jadi bagian ini akan kosong sampai ada kasus baru.</div>
-    <div>Gunakan pemilih <b>"Bulan"</b> di atas untuk berpindah antar sheet PSFU Body &amp; Paint per bulan (satu file Google Sheet terpisah per bulan). Saat ini baru sheet <b>September 2026</b> yang tersedia, sehingga pilihan bulan lain belum muncul di dropdown. Begitu bengkel membuat sheet bulan baru, tambahkan entrinya (bulan, tahun, ID sheet) ke daftar <code>MONTH_SHEETS</code> pada kode halaman ini — dropdown &amp; jumlah tanggal yang tersedia akan menyesuaikan otomatis.</div>
+    <div>Gunakan pemilih <b>"Bulan"</b> di atas untuk berpindah antar sheet PSFU Body &amp; Paint per bulan (satu file Google Sheet terpisah per bulan). Saat ini sheet <b>September 2026</b> dan <b>Oktober 2026</b> yang tersedia. Begitu bengkel membuat sheet bulan baru, tambahkan entrinya (bulan, tahun, ID sheet) ke daftar <code>MONTH_SHEETS</code> pada kode halaman ini — dropdown &amp; jumlah tanggal yang tersedia akan menyesuaikan otomatis.</div>
   </footer>
 
 </div>
@@ -424,7 +424,8 @@
   // sheet is created; the "Bulan" dropdown is built straight from this list,
   // so it only shows months that actually have a sheet configured. ======
   var MONTH_SHEETS = [
-    { month:9, year:2026, id:"19bwjxG2Jxm7KjOani0PH0h-pKd5haoWskWQ9FleSlLQ" } // September 2026
+    { month:9, year:2026, id:"1pG6pBhF6QG5EDI81DuypQLwNse1j4r-P8hV-gHYaNzk" }, // September 2026
+    { month:10, year:2026, id:"19bwjxG2Jxm7KjOani0PH0h-pKd5haoWskWQ9FleSlLQ" } // Oktober 2026
   ];
 
   function getMonthConfig(monthNum){
