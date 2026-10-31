@@ -286,6 +286,8 @@
       <p>Highlight kepuasan &amp; komplain pelanggan Body &amp; Paint, langsung dari data PSFU</p>
     </div>
     <div class="controls">
+      <label for="yearSelect">Tahun</label>
+      <select id="yearSelect"></select>
       <label for="monthSelect">Bulan</label>
       <select id="monthSelect"></select>
       <label for="fromDaySelect">Dari Tanggal</label>
@@ -410,7 +412,7 @@
     <div>Klasifikasi "Bagian" untuk komplain negatif dibuat otomatis dari kata kunci pada catatan pelanggan (sheet sumber tidak selalu mengisi kategori komplain), jadi hasilnya adalah perkiraan terbaik — mohon dikoreksi manual di sheet bila diperlukan. Sheet Body &amp; Paint ini tidak memiliki kolom kategori terpisah untuk feedback positif (kolom "Positive Experience" berisi teks bebas), jadi feedback positif diklasifikasi ke bagian dengan kata kunci yang sama, supaya persentase puas per bagian tetap bisa dihitung.</div>
     <div>Kolom <b>Q1 (FIR)</b>, <b>Q2 (OTD)</b> dan <b>Q3 (Reas. OTD)</b> diambil apa adanya dari sheet sumber (tanda "O" dianggap tercapai/lulus, kosong dianggap belum/tidak berlaku); rate pada kartu ringkasan dihitung dari proporsi "O" terhadap PKB yang sudah diisi tanda pada rentang tanggal terpilih. Kolom <b>Asuransi (INS.)</b> ditampilkan sebagai teks/badge — nilai apa pun yang terisi dianggap PKB tersebut menggunakan asuransi, dan kartu "Distribusi Asuransi" merangkum sebarannya (termasuk yang tanpa asuransi) untuk seluruh PKB pada rentang tanggal, bukan hanya yang kurang puas.</div>
     <div>Kolom <b>Q1 (FIR)</b> juga dipakai untuk melacak <b>Return Job</b>: kalau unit tidak lulus FIR saat serah terima dan harus balik lagi ke bengkel, sel kolom ini diisi teks "Datang" (pelanggan sudah bawa kembali unitnya) atau "Tidak Datang" (belum/tidak kembali) menggantikan tanda "O". Halaman ini menghitung PKB dengan nilai Q1 selain "O"/kosong sebagai "Non-FIR", dan menampilkan sebaran Datang/Tidak Datang beserta daftar unitnya di bagian "Return Job (Non-FIR)" pada tab Highlight. Data September ini belum ada kasus Non-FIR, jadi bagian ini akan kosong sampai ada kasus baru.</div>
-    <div>Gunakan pemilih <b>"Bulan"</b> di atas untuk berpindah antar sheet PSFU Body &amp; Paint per bulan (satu file Google Sheet terpisah per bulan). Saat ini sheet <b>September 2026</b> dan <b>Oktober 2026</b> yang tersedia. Begitu bengkel membuat sheet bulan baru, tambahkan entrinya (bulan, tahun, ID sheet) ke daftar <code>MONTH_SHEETS</code> pada kode halaman ini — dropdown &amp; jumlah tanggal yang tersedia akan menyesuaikan otomatis.</div>
+    <div>Gunakan pemilih <b>"Bulan"</b> di atas untuk berpindah antar sheet PSFU Body &amp; Paint per bulan (satu file Google Sheet terpisah per bulan, disimpan di folder Drive per tahun). Daftar bulan &amp; tahun dibaca otomatis dari folder Drive dan dicek ulang tiap 5 menit, jadi bulan/tahun baru muncul sendiri begitu file-nya dibuat di folder. Pastikan setiap file bulanan dibagikan sebagai <b>"Anyone with the link – Viewer"</b> agar datanya bisa dibaca.</div>
   </footer>
 
 </div>
@@ -419,18 +421,33 @@
 (function(){
   "use strict";
 
-  // ====== CONFIG — one Google Sheet file per month (all shared from the same
-  // Drive folder). Add an entry here { month, year, id } when a new month's
-  // sheet is created; the "Bulan" dropdown is built straight from this list,
-  // so it only shows months that actually have a sheet configured. ======
-  var MONTH_SHEETS = [
-    { month:9, year:2026, id:"1pG6pBhF6QG5EDI81DuypQLwNse1j4r-P8hV-gHYaNzk" }, // September 2026
-    { month:10, year:2026, id:"19bwjxG2Jxm7KjOani0PH0h-pKd5haoWskWQ9FleSlLQ" } // Oktober 2026
-  ];
+  // ====== CONFIG — satu file Google Sheet per bulan, disimpan di folder Drive
+  // PSFU (struktur: folder tahun -> file "NN. PSFU BP <BULAN> <TAHUN>").
+  //
+  // DISCOVERY_URL = alamat Web App Apps Script (lihat file psfu-drive-discovery.gs)
+  // yang membaca folder Drive tsb dan mengembalikan daftar { year, month, id }.
+  // Kalau diisi, dropdown "Bulan" dibangun otomatis dari isi folder dan dicek
+  // ulang berkala: bulan/tahun baru (mis. Januari 2027) muncul sendiri tanpa
+  // edit kode, dan ID file yang berubah (file di-rename/dipakai ulang) ikut
+  // terkoreksi otomatis. Kalau kosong / gagal diakses, dashboard memakai daftar
+  // cadangan MONTH_SHEETS_FALLBACK di bawah.
+  var DISCOVERY_URL = "https://script.google.com/macros/s/AKfycbwg_W1G1IcVj1mvrAC2LmfeTvCVNrtsQDjhFiwKFvet6AK3j6Ou0Evm6ivdZdJtTXbq/exec";
+  var DISCOVERY_REFRESH_MS = 300000; // cek ulang isi folder tiap 5 menit
 
-  function getMonthConfig(monthNum){
+  var MONTH_SHEETS_FALLBACK = [
+    { month:9,  year:2026, id:"1pG6pBhF6QG5EDI81DuypQLwNse1j4r-P8hV-gHYaNzk" }, // September 2026
+    { month:10, year:2026, id:"1hgPGbyq8thG7LW_38xmemi34EZBN40x1fha518xjDtg" }, // Oktober 2026
+    { month:11, year:2026, id:"19bwjxG2Jxm7KjOani0PH0h-pKd5haoWskWQ9FleSlLQ" }  // November 2026
+  ];
+  var MONTH_SHEETS = MONTH_SHEETS_FALLBACK.slice();
+
+  function monthKey(year, month){ return year + '-' + (month<10 ? '0'+month : month); }
+  function sortMonthSheets(list){
+    return list.slice().sort(function(a,b){ return (a.year-b.year) || (a.month-b.month); });
+  }
+  function getMonthConfig(key){
     for (var i=0;i<MONTH_SHEETS.length;i++){
-      if (MONTH_SHEETS[i].month === monthNum) return MONTH_SHEETS[i];
+      if (monthKey(MONTH_SHEETS[i].year, MONTH_SHEETS[i].month) === key) return MONTH_SHEETS[i];
     }
     return null;
   }
@@ -448,13 +465,13 @@
   // Switches the active sheet/month. Repopulates the date dropdowns for the
   // new month's day count and, by default, resets the range to 1–H-4 (same
   // default logic as before, now relative to whichever month is selected).
-  function applyMonth(monthNum, opts){
+  function applyMonth(key, opts){
     opts = opts || {};
-    var cfg = getMonthConfig(monthNum);
+    var cfg = getMonthConfig(key);
     if (!cfg) return;
     SHEET_ID = cfg.id;
     SHEET_YEAR = cfg.year;
-    SHEET_MONTH = monthNum;
+    SHEET_MONTH = cfg.month;
     SHEET_MAX_DAY = daysInMonth(SHEET_YEAR, SHEET_MONTH);
 
     document.getElementById('sheetLink').href = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/edit';
@@ -1356,29 +1373,157 @@
     }
   }
 
+  // ---------- dropdown "Bulan" + auto-discovery dari folder Drive ----------
+  var userPickedMonth = false;
+
+  // Mengisi dropdown "Tahun" (semua tahun yang punya sheet) dan "Bulan" (hanya
+  // bulan pada tahun terpilih), lalu menandai bulan `key` ("YYYY-MM") sebagai
+  // pilihan aktif.
+  function buildMonthOptions(key){
+    var yearSelect = document.getElementById('yearSelect');
+    var monthSelect = document.getElementById('monthSelect');
+    var sorted = sortMonthSheets(MONTH_SHEETS);
+    var years = [];
+    sorted.forEach(function(c){ if (years.indexOf(c.year) === -1) years.push(c.year); });
+    var selYear = parseInt(String(key).split('-')[0],10);
+    if (years.indexOf(selYear) === -1) selYear = years[years.length-1];
+
+    yearSelect.innerHTML = years.map(function(y){
+      return '<option value="'+y+'">'+y+'</option>';
+    }).join('');
+    yearSelect.value = String(selYear);
+
+    monthSelect.innerHTML = sorted.filter(function(c){ return c.year === selYear; }).map(function(cfg){
+      return '<option value="'+monthKey(cfg.year,cfg.month)+'">'+monthName(cfg.month)+'</option>';
+    }).join('');
+    if (getMonthConfig(key)) monthSelect.value = key;
+  }
+
+  // Bulan yang dipilih saat pengguna berganti tahun: bulan yang sama kalau ada
+  // di tahun itu, kalau tidak bulan terbaru yang tersedia di tahun tersebut.
+  function pickMonthKeyForYear(year, preferredMonth){
+    var inYear = sortMonthSheets(MONTH_SHEETS).filter(function(c){ return c.year === year; });
+    if (!inYear.length) return null;
+    for (var i=0;i<inYear.length;i++){
+      if (inYear[i].month === preferredMonth) return monthKey(year, preferredMonth);
+    }
+    var last = inYear[inYear.length-1];
+    return monthKey(last.year, last.month);
+  }
+
+  // Bulan berjalan (zona Asia/Jakarta) kalau sheet-nya ada; kalau belum, bulan
+  // terbaru yang sudah punya sheet.
+  function pickInitialMonthKey(){
+    var t = jakartaTodayParts();
+    var cur = monthKey(t.y, t.m);
+    if (getMonthConfig(cur)) return cur;
+    var sorted = sortMonthSheets(MONTH_SHEETS);
+    var last = sorted[sorted.length-1];
+    return monthKey(last.year, last.month);
+  }
+
+  function validateDiscovered(list){
+    if (!Array.isArray(list)) return [];
+    var seen = {}, out = [];
+    list.forEach(function(e){
+      if (!e || typeof e.id !== 'string' || !/^[A-Za-z0-9_-]{20,}$/.test(e.id)) return;
+      var y = parseInt(e.year,10), m = parseInt(e.month,10);
+      if (!(y >= 2000 && y <= 2100 && m >= 1 && m <= 12)) return;
+      var k = monthKey(y,m);
+      if (seen[k]) return;
+      seen[k] = true;
+      out.push({ year:y, month:m, id:e.id });
+    });
+    return out;
+  }
+
+  function fetchDiscovery(){
+    return new Promise(function(resolve, reject){
+      jsonpCounter++;
+      var cbName = '__psfuDiscovery' + jsonpCounter;
+      var script = document.createElement('script');
+      var done = false;
+      var timeoutId = setTimeout(function(){ finish(new Error('timeout')); }, 15000);
+      function finish(err, data){
+        if (done) return;
+        done = true;
+        clearTimeout(timeoutId);
+        delete window[cbName];
+        if (script.parentNode) script.parentNode.removeChild(script);
+        if (err) reject(err); else resolve(data);
+      }
+      window[cbName] = function(data){ finish(null, data); };
+      script.onerror = function(){ finish(new Error('load error')); };
+      script.src = DISCOVERY_URL + (DISCOVERY_URL.indexOf('?')>=0 ? '&' : '?') + 'callback=' + cbName + '&_ts=' + Date.now();
+      document.head.appendChild(script);
+    });
+  }
+
+  // Dipanggil saat start dan tiap DISCOVERY_REFRESH_MS. Hasil yang valid
+  // menggantikan daftar bulan sepenuhnya (folder Drive = sumber kebenaran);
+  // hasil kosong/rusak diabaikan sehingga daftar yang sudah ada tetap dipakai.
+  function refreshMonthList(){
+    if (!DISCOVERY_URL) return Promise.resolve(false);
+    return fetchDiscovery().then(function(data){
+      var list = validateDiscovered(data && data.sheets);
+      if (!list.length) return false;
+      var before = JSON.stringify(sortMonthSheets(MONTH_SHEETS));
+      var after = JSON.stringify(sortMonthSheets(list));
+      if (before === after) return false;
+
+      var monthSelect = document.getElementById('monthSelect');
+      var selectedKey = monthSelect.value;
+      var prevCfg = getMonthConfig(selectedKey);
+      MONTH_SHEETS = list;
+
+      var newCfg = getMonthConfig(selectedKey);
+      var curKey = pickInitialMonthKey();
+      if (!newCfg || (!userPickedMonth && selectedKey !== curKey)){
+        // bulan terpilih hilang dari folder, atau pengguna belum memilih
+        // manual & bulan berjalan baru saja tersedia -> pindah otomatis.
+        buildMonthOptions(curKey);
+        applyMonth(curKey, {resetRange:true});
+        resetCountdown();
+        loadRange();
+      } else {
+        buildMonthOptions(selectedKey);
+        if (prevCfg && prevCfg.id !== newCfg.id){
+          // file untuk bulan yang sedang dibuka berganti ID (rename/dipakai ulang)
+          applyMonth(selectedKey, {resetRange:false});
+          resetCountdown();
+          loadRange();
+        }
+      }
+      return true;
+    }).catch(function(){ return false; });
+  }
+
   function init(){
     document.getElementById('refreshSecLabel').textContent = Math.round(REFRESH_MS/1000);
     populateAreaFilter();
 
     var monthSelect = document.getElementById('monthSelect');
-    var sortedMonths = MONTH_SHEETS.slice().sort(function(a,b){ return a.month - b.month; });
-    monthSelect.innerHTML = sortedMonths.map(function(cfg){
-      return '<option value="'+cfg.month+'">'+monthName(cfg.month)+'</option>';
-    }).join('');
-
-    // Default to today's real-world month if a sheet exists for it; otherwise
-    // fall back to the most recent month that has one configured.
-    var t = jakartaTodayParts();
-    var initialCfg = getMonthConfig(t.m) || sortedMonths[sortedMonths.length-1];
-    var initialMonth = initialCfg.month;
-    monthSelect.value = initialMonth;
-    applyMonth(initialMonth, {resetRange:true});
+    var yearSelect = document.getElementById('yearSelect');
+    var initialKey = pickInitialMonthKey();
+    buildMonthOptions(initialKey);
+    applyMonth(initialKey, {resetRange:true});
 
     var fromSelect = document.getElementById('fromDaySelect');
     var toSelect = document.getElementById('toDaySelect');
 
+    yearSelect.addEventListener('change', function(){
+      userPickedMonth = true;
+      var curMonth = SHEET_MONTH;
+      var key = pickMonthKeyForYear(parseInt(yearSelect.value,10), curMonth);
+      if (!key) return;
+      buildMonthOptions(key);
+      applyMonth(key, {resetRange:true});
+      resetCountdown();
+      loadRange();
+    });
     monthSelect.addEventListener('change', function(){
-      applyMonth(parseInt(monthSelect.value,10), {resetRange:true});
+      userPickedMonth = true;
+      applyMonth(monthSelect.value, {resetRange:true});
       resetCountdown();
       loadRange();
     });
@@ -1415,6 +1560,10 @@
     loadRange();
     if (refreshTimer) clearInterval(refreshTimer);
     refreshTimer = setInterval(tick, 1000);
+
+    // Deteksi otomatis bulan/tahun baru dari folder Drive (lihat DISCOVERY_URL).
+    refreshMonthList();
+    if (DISCOVERY_URL) setInterval(refreshMonthList, DISCOVERY_REFRESH_MS);
   }
 
   document.addEventListener('DOMContentLoaded', init);
